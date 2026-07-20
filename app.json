@@ -2,7 +2,7 @@
   "expo": {
     "name": "Collection ERP",
     "slug": "collectionapp",
-    "owner": "anandganesh",
+    "owner": "boss081415",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
@@ -35,7 +35,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "d0e4e85a-f46a-45ba-979a-f7228058019c"
+        "projectId": "dcfbc8e5-a13e-4de1-a4dc-36a1a785089e"
       }
     }
   }
