@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Collection ERP",
+    "slug": "collectionapp",
+    "owner": "anandganesh",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo.png",
+    "userInterfaceStyle": "light",
+    "scheme": "collectionapp",
+    "splash": {
+      "backgroundColor": "#6366F1"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.collection.erp"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#6366F1"
+      },
+      "package": "com.collection.erp",
+      "userInterfaceStyle": "light"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d0e4e85a-f46a-45ba-979a-f7228058019c"
+      }
+    }
+  }
+}
