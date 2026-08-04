@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { Picker } from '@react-native-picker/picker';
 import { CalendarDays } from 'lucide-react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import ScreenHeader from '../../components/ScreenHeader';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 
 const PERIOD_OPTIONS = [
@@ -36,24 +36,15 @@ const WEEKDAY_OPTIONS = [
 ];
 const MONTH_DATE_OPTIONS = Array.from({ length: 31 }, (_, i) => i + 1);
 
-const INPUT = {
-  backgroundColor: COLORS.background,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: RADIUS.md,
-  paddingHorizontal: 14,
-  paddingVertical: 12,
-  fontSize: 15,
-  color: COLORS.textPrimary,
-};
-
 function Field({ label, required, hint, children }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.field}>
       <View style={styles.labelRow}>
         <Text style={styles.label}>
           {label}
-          {required ? <Text style={{ color: COLORS.danger }}> *</Text> : null}
+          {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
         </Text>
         {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       </View>
@@ -63,6 +54,8 @@ function Field({ label, required, hint, children }) {
 }
 
 function DateField({ label, required, hint, value, onChange, disabled }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [show, setShow] = useState(false);
   const date = value ? new Date(value) : new Date();
   const display = value || 'Select date';
@@ -72,7 +65,7 @@ function DateField({ label, required, hint, value, onChange, disabled }) {
       <View style={styles.labelRow}>
         <Text style={styles.label}>
           {label}
-          {required ? <Text style={{ color: COLORS.danger }}> *</Text> : null}
+          {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
         </Text>
         {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       </View>
@@ -81,8 +74,8 @@ function DateField({ label, required, hint, value, onChange, disabled }) {
         onPress={() => !disabled && setShow(true)}
         activeOpacity={disabled ? 1 : 0.7}
       >
-        <Text style={[styles.dateBtnText, !value && { color: COLORS.textMuted }]}>{display}</Text>
-        <CalendarDays size={16} color={disabled ? COLORS.textMuted : COLORS.primary} />
+        <Text style={[styles.dateBtnText, !value && { color: colors.textMuted }]}>{display}</Text>
+        <CalendarDays size={16} color={disabled ? colors.textMuted : colors.primary} />
       </TouchableOpacity>
       {show && (
         <DateTimePicker
@@ -132,6 +125,19 @@ export default function LoanDetailScreen() {
   const handleFocus = (idx) => {
     focusedIndexRef.current = idx;
     setTimeout(adjustScrollForFocusedField, 50);
+  };
+
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const INPUT = {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.textPrimary,
   };
 
   const { id } = useLocalSearchParams();
@@ -305,7 +311,7 @@ export default function LoanDetailScreen() {
               </View>
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryLabel}>Total</Text>
-                <Text style={[styles.summaryValue, hasInstallmentMismatch && { color: COLORS.warning }]}>
+                <Text style={[styles.summaryValue, hasInstallmentMismatch && { color: colors.warning }]}>
                   ₹{installmentTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                 </Text>
               </View>
@@ -344,7 +350,7 @@ export default function LoanDetailScreen() {
                 onFocus={() => handleFocus(0)}
                     style={INPUT}
                     placeholder="0.00"
-                    placeholderTextColor={COLORS.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     value={form.LoanAmount}
                     onChangeText={set('LoanAmount')}
                     keyboardType="decimal-pad"
@@ -398,7 +404,7 @@ export default function LoanDetailScreen() {
                 onFocus={() => handleFocus(1)}
                     style={INPUT}
                     placeholder="e.g. 12"
-                    placeholderTextColor={COLORS.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     value={form.NoOfInstallments}
                     onChangeText={set('NoOfInstallments')}
                     keyboardType="number-pad"
@@ -412,7 +418,7 @@ export default function LoanDetailScreen() {
                 onFocus={() => handleFocus(2)}
                     style={INPUT}
                     placeholder="0.00"
-                    placeholderTextColor={COLORS.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     value={form.InstallmentAmount}
                     onChangeText={set('InstallmentAmount')}
                     keyboardType="decimal-pad"
@@ -481,7 +487,7 @@ export default function LoanDetailScreen() {
                 onFocus={() => handleFocus(4)}
               style={[INPUT, { minHeight: 80, textAlignVertical: 'top', paddingTop: 12 }]}
               placeholder="Any remarks about this loan…"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={form.Notes}
               onChangeText={set('Notes')}
               multiline
@@ -493,53 +499,53 @@ export default function LoanDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 300 },
   summaryStrip: {
-    flexDirection: 'row', backgroundColor: COLORS.primary, borderRadius: RADIUS.lg, padding: SPACING.md, gap: 8,
+    flexDirection: 'row', backgroundColor: colors.primary, borderRadius: RADIUS.lg, padding: SPACING.md, gap: 8,
   },
   summaryItem: { flex: 1, alignItems: 'center' },
   summaryLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)' },
   summaryValue: { fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 2 },
-  mismatchWarning: { fontSize: 12, color: COLORS.warning, fontWeight: '600' },
+  mismatchWarning: { fontSize: 12, color: colors.warning, fontWeight: '600' },
   card: {
-    backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
+    backgroundColor: colors.white, borderRadius: RADIUS.lg, padding: SPACING.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.md },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: SPACING.md },
   field: { marginBottom: SPACING.md },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
-  hint: { fontSize: 11, color: COLORS.primary, backgroundColor: '#EEF2FF', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  label: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+  hint: { fontSize: 11, color: colors.primary, backgroundColor: '#EEF2FF', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
   row: { flexDirection: 'row', gap: 12 },
   pickerWrap: {
-    backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, overflow: 'hidden',
+    backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: RADIUS.md, overflow: 'hidden',
   },
-  picker: { height: 48, color: COLORS.textPrimary },
+  picker: { height: 48, color: colors.textPrimary },
   periodGroup: { flexDirection: 'row', gap: 8 },
   periodBtn: {
     flex: 1, paddingVertical: 10, borderRadius: RADIUS.md,
-    backgroundColor: COLORS.background, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: colors.background, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border,
   },
-  periodBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  periodBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  periodBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  periodBtnText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   periodBtnTextActive: { color: '#fff' },
   dayOffsetGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   dayChip: {
     paddingVertical: 10, paddingHorizontal: 14, borderRadius: RADIUS.full,
-    backgroundColor: COLORS.background, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: colors.background, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border,
   },
-  dayChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  dayChipText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  dayChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  dayChipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   dayChipTextActive: { color: '#fff' },
   dateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border,
     borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 12,
   },
   dateBtnDisabled: { opacity: 0.6 },
-  dateBtnText: { fontSize: 15, color: COLORS.textPrimary },
+  dateBtnText: { fontSize: 15, color: colors.textPrimary },
 });

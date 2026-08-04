@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,23 +15,24 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 import { getCurrentUser } from '../../constants/session';
 
-const INPUT_STYLE = {
-  backgroundColor: COLORS.background,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: RADIUS.md,
-  paddingHorizontal: 14,
-  paddingVertical: 12,
-  fontSize: 15,
-  color: COLORS.textPrimary,
-};
-
 export default function ChangePasswordScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const INPUT_STYLE = {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.textPrimary,
+  };
 
   const [currentUser, setCurrentUser] = useState(null);
   useEffect(() => { getCurrentUser().then(setCurrentUser); }, []);
@@ -123,7 +124,7 @@ export default function ChangePasswordScreen() {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <ArrowLeft size={20} color={COLORS.textPrimary} />
+            <ArrowLeft size={20} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.title}>Change Password</Text>
         </View>
@@ -147,7 +148,7 @@ export default function ChangePasswordScreen() {
               onFocus={() => handleFocus(0)}
               style={INPUT_STYLE}
               placeholder="Enter current password"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={oldPassword}
               onChangeText={setOldPassword}
               secureTextEntry
@@ -159,7 +160,7 @@ export default function ChangePasswordScreen() {
               onFocus={() => handleFocus(1)}
               style={INPUT_STYLE}
               placeholder="At least 6 characters"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={newPassword}
               onChangeText={setNewPassword}
               secureTextEntry
@@ -171,7 +172,7 @@ export default function ChangePasswordScreen() {
               onFocus={() => handleFocus(2)}
               style={INPUT_STYLE}
               placeholder="Re-enter new password"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
@@ -195,17 +196,17 @@ export default function ChangePasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   backBtn: {
     width: 40,
@@ -213,21 +214,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
+  title: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
   content: { padding: SPACING.md, paddingBottom: 40 },
-  sectionSubtitle: { fontSize: 14, color: COLORS.textSecondary, marginBottom: SPACING.md },
+  sectionSubtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: SPACING.md },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 6 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 6 },
   primaryBtn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: RADIUS.md,
     paddingVertical: 14,
     alignItems: 'center',

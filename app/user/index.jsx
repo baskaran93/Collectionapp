@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,12 +13,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { ArrowLeft, Plus, ShieldCheck, ChevronRight } from 'lucide-react-native';
 import Avatar from '../../components/Avatar';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 import { getCurrentUser } from '../../constants/session';
 
 export default function UserListScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,11 +74,11 @@ export default function UserListScreen() {
       <View style={styles.cardBody}>
         <Text style={styles.username}>{item.Username}</Text>
         <View style={styles.roleRow}>
-          {item.Role === 'Admin' ? <ShieldCheck size={13} color={COLORS.primary} /> : null}
+          {item.Role === 'Admin' ? <ShieldCheck size={13} color={colors.primary} /> : null}
           <Text style={[styles.roleText, item.Role === 'Admin' && styles.roleTextAdmin]}>{item.Role}</Text>
         </View>
       </View>
-      <ChevronRight size={18} color={COLORS.textMuted} />
+      <ChevronRight size={18} color={colors.textMuted} />
     </TouchableOpacity>
   );
 
@@ -84,7 +86,7 @@ export default function UserListScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <ArrowLeft size={20} color={COLORS.textPrimary} />
+          <ArrowLeft size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>User Management</Text>
@@ -97,7 +99,7 @@ export default function UserListScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -113,7 +115,7 @@ export default function UserListScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.emptyText}>No users yet. Tap + to add one.</Text>
@@ -125,17 +127,17 @@ export default function UserListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   backBtn: {
     width: 40,
@@ -143,13 +145,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
-  subtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  title: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
+  subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   addBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center', alignItems: 'center',
   },
   list: { padding: SPACING.md, gap: 10 },
@@ -157,7 +159,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     shadowColor: '#000',
@@ -167,16 +169,16 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardBody: { flex: 1 },
-  username: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
+  username: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
   roleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
-  roleText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
-  roleTextAdmin: { color: COLORS.primary },
+  roleText: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
+  roleTextAdmin: { color: colors.primary },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
-  errorText: { color: COLORS.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
+  errorText: { color: colors.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
   retryBtn: {
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.md,
+    backgroundColor: colors.primary, borderRadius: RADIUS.md,
     paddingHorizontal: 20, paddingVertical: 10,
   },
   retryText: { color: '#fff', fontWeight: '700' },
-  emptyText: { color: COLORS.textMuted, fontSize: 14, textAlign: 'center' },
+  emptyText: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
 });

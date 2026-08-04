@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,10 +16,10 @@ import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import { LogOut, UserPlus, FileText, Wallet, TrendingUp, Settings, Check, CloudOff, RefreshCw } from 'lucide-react-native';
+import { LogOut, UserPlus, FileText, Wallet, TrendingUp, Settings, Check, CloudOff, RefreshCw, Sun, Moon } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
 import Avatar, { getAvatarColor } from '../../components/Avatar';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 import { clearSession } from '../../constants/session';
 import { queueCollection, syncQueue, getQueueCount } from '../../constants/offlineQueue';
@@ -37,6 +37,8 @@ function formatAmount(n) {
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [collections, setCollections] = useState([]);
   const [loans, setLoans] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -245,6 +247,14 @@ export default function DashboardScreen() {
               </View>
             </View>
             <View style={styles.iconRow}>
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={toggleTheme}
+                accessibilityLabel="Toggle theme"
+                accessibilityRole="button"
+              >
+                {isDark ? <Sun size={20} color="#fff" /> : <Moon size={20} color="#fff" />}
+              </TouchableOpacity>
               <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/settings')}>
                 <Settings size={20} color="#fff" />
               </TouchableOpacity>
@@ -297,14 +307,14 @@ export default function DashboardScreen() {
               disabled={syncing}
               activeOpacity={0.7}
             >
-              <CloudOff size={18} color={COLORS.warning} />
+              <CloudOff size={18} color={colors.warning} />
               <Text style={styles.pendingBannerText}>
                 {pendingCount} collection{pendingCount > 1 ? 's' : ''} saved offline, waiting to sync
               </Text>
               {syncing ? (
-                <ActivityIndicator size="small" color={COLORS.warning} />
+                <ActivityIndicator size="small" color={colors.warning} />
               ) : (
-                <RefreshCw size={16} color={COLORS.warning} />
+                <RefreshCw size={16} color={colors.warning} />
               )}
             </TouchableOpacity>
           )}
@@ -314,7 +324,7 @@ export default function DashboardScreen() {
             <View style={styles.metricHalf}>
               <Text style={styles.metricLabel}>{t('dueTodayLabel')}</Text>
               <Text style={styles.metricValue}>₹{Math.round(dueTodayAmount).toLocaleString('en-IN')}</Text>
-              <Text style={[styles.metricSub, { color: COLORS.warning }]}>
+              <Text style={[styles.metricSub, { color: colors.warning }]}>
                 {activeLoans.length} {t('activeParties')}
               </Text>
             </View>
@@ -326,7 +336,7 @@ export default function DashboardScreen() {
             >
               <Text style={styles.metricLabel}>{t('outstandingLabel')}</Text>
               <Text style={styles.metricValue}>{formatAmount(outstandingTotal)}</Text>
-              <Text style={[styles.metricSub, { color: COLORS.danger }]}>
+              <Text style={[styles.metricSub, { color: colors.danger }]}>
                 {overdueCount} {t('overdue')}{overdueCount > 0 ? ' ›' : ''}
               </Text>
             </TouchableOpacity>
@@ -336,7 +346,7 @@ export default function DashboardScreen() {
           <View style={styles.actionsRow}>
             <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/party/new')}>
               <View style={[styles.actionIcon, { backgroundColor: '#EEF2FF' }]}>
-                <UserPlus size={22} color={COLORS.primary} />
+                <UserPlus size={22} color={colors.primary} />
               </View>
               <Text style={styles.actionLabel}>{t('newParty')}</Text>
             </TouchableOpacity>
@@ -465,8 +475,8 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
 
   // Header
   header: { paddingHorizontal: SPACING.lg, paddingBottom: 28, overflow: 'hidden' },
@@ -528,17 +538,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: COLORS.warningBg,
+    backgroundColor: colors.warningBg,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
   },
-  pendingBannerText: { flex: 1, color: COLORS.warningText, fontSize: 13, fontWeight: '600' },
+  pendingBannerText: { flex: 1, color: colors.warningText, fontSize: 13, fontWeight: '600' },
 
   // Metrics
   metricsCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     marginBottom: SPACING.md,
     shadowColor: '#000',
@@ -548,16 +558,16 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   metricHalf: { flex: 1, padding: SPACING.md },
-  metricDivider: { width: 1, backgroundColor: COLORS.border, marginVertical: SPACING.md },
-  metricLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 0.5 },
-  metricValue: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
+  metricDivider: { width: 1, backgroundColor: colors.border, marginVertical: SPACING.md },
+  metricLabel: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.5 },
+  metricValue: { fontSize: 24, fontWeight: '800', color: colors.textPrimary, marginTop: 4 },
   metricSub: { fontSize: 13, marginTop: 2, fontWeight: '600' },
 
   // Actions
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: SPACING.md },
   actionCard: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     alignItems: 'center',
@@ -571,11 +581,11 @@ const styles = StyleSheet.create({
     width: 52, height: 52, borderRadius: 14,
     justifyContent: 'center', alignItems: 'center', marginBottom: 10,
   },
-  actionLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center' },
+  actionLabel: { fontSize: 12, fontWeight: '600', color: colors.textPrimary, textAlign: 'center' },
   reportsLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -595,8 +605,8 @@ const styles = StyleSheet.create({
     marginRight: SPACING.md,
   },
   reportTextArea: { flex: 1 },
-  reportTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
-  reportSubtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  reportTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  reportSubtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
 
   // Sections
   section: { marginBottom: SPACING.lg },
@@ -604,15 +614,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: SPACING.sm,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary },
-  seeAll: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
-  emptyText: { color: COLORS.textMuted, textAlign: 'center', padding: SPACING.lg, fontSize: 14 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
+  seeAll: { fontSize: 14, color: colors.primary, fontWeight: '600' },
+  emptyText: { color: colors.textMuted, textAlign: 'center', padding: SPACING.lg, fontSize: 14 },
 
   // Due Today cards
   dueCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: 10,
@@ -624,13 +634,13 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   dueCardMid: { flex: 1, marginLeft: 12 },
-  dueCardName: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
-  dueCardSub: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  dueCardName: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  dueCardSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   dueCardRight: { alignItems: 'flex-end' },
-  dueAmount: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
-  collectLink: { fontSize: 13, color: COLORS.primary, fontWeight: '600', marginTop: 3 },
+  dueAmount: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  collectLink: { fontSize: 13, color: colors.primary, fontWeight: '600', marginTop: 3 },
   swipeCollectAction: {
-    backgroundColor: COLORS.success,
+    backgroundColor: colors.success,
     justifyContent: 'center',
     alignItems: 'center',
     width: 84,
@@ -645,7 +655,7 @@ const styles = StyleSheet.create({
   recentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: 10,
@@ -656,5 +666,5 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   recentMid: { flex: 1, marginLeft: 12 },
-  recentAmount: { fontSize: 16, fontWeight: '700', color: COLORS.success },
+  recentAmount: { fontSize: 16, fontWeight: '700', color: colors.success },
 });

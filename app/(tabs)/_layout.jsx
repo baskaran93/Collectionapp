@@ -1,22 +1,23 @@
 import { Tabs } from 'expo-router';
 import { Home, Users, FileText, CreditCard, TrendingUp } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../../constants/theme';
+import { useTheme } from '../../constants/theme';
 
 export default function TabsLayout() {
   const { bottom } = useSafeAreaInsets();
+  const { colors } = useTheme();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopColor: '#E5E7EB',
+          backgroundColor: colors.white,
+          borderTopColor: colors.border,
           height: 62 + bottom,
           paddingBottom: 8 + bottom,
         },
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >

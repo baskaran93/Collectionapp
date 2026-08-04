@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Search, Plus, Calendar, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
 import Avatar from '../../components/Avatar';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 
 const STATUS = {
@@ -33,6 +33,8 @@ function fmt(n) {
 export default function LoansScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -113,7 +115,7 @@ export default function LoansScreen() {
         </View>
         {item.LoanStartDate ? (
           <View style={styles.dateRow}>
-            <Calendar size={13} color={COLORS.textMuted} />
+            <Calendar size={13} color={colors.textMuted} />
             <Text style={styles.dateText}>
               {new Date(item.LoanStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               {item.LoanCloseDate
@@ -142,11 +144,11 @@ export default function LoansScreen() {
       {/* Stats Strip */}
       <View style={styles.statsStrip}>
         <View style={styles.statChip}>
-          <TrendingUp size={14} color={COLORS.info} />
+          <TrendingUp size={14} color={colors.info} />
           <Text style={styles.statChipText}>{activeCount} {t('active')}</Text>
         </View>
         <View style={styles.statChip}>
-          <AlertCircle size={14} color={COLORS.danger} />
+          <AlertCircle size={14} color={colors.danger} />
           <Text style={styles.statChipText}>{overdueCount} {t('overdue')}</Text>
         </View>
         <View style={styles.statChip}>
@@ -157,11 +159,11 @@ export default function LoansScreen() {
       {/* Search + Filters */}
       <View style={styles.searchArea}>
         <View style={styles.searchBox}>
-          <Search size={16} color={COLORS.textSecondary} />
+          <Search size={16} color={colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
             placeholder={t('searchPartyName')}
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
           />
@@ -184,7 +186,7 @@ export default function LoansScreen() {
       {/* List */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -200,7 +202,7 @@ export default function LoansScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.emptyText}>
@@ -214,53 +216,53 @@ export default function LoansScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
-  subtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
-  addBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
+  subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  addBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
   statsStrip: {
     flexDirection: 'row', gap: 10,
     paddingHorizontal: SPACING.md, paddingVertical: 10,
-    backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  statChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.background, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
-  statChipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
-  searchArea: { paddingHorizontal: SPACING.md, paddingTop: 10, paddingBottom: 4, backgroundColor: COLORS.white },
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background, borderRadius: RADIUS.md, paddingHorizontal: 12, gap: 8, height: 40 },
-  searchInput: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
-  filterRow: { flexGrow: 0, height: 52, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  statChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.background, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
+  statChipText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  searchArea: { paddingHorizontal: SPACING.md, paddingTop: 10, paddingBottom: 4, backgroundColor: colors.white },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: RADIUS.md, paddingHorizontal: 12, gap: 8, height: 40 },
+  searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary },
+  filterRow: { flexGrow: 0, height: 52, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
   filterContent: { paddingHorizontal: SPACING.md, paddingVertical: 10, gap: 8, alignItems: 'center' },
-  filterPill: { borderRadius: RADIUS.full, paddingHorizontal: 16, paddingVertical: 6, backgroundColor: COLORS.background },
-  filterPillActive: { backgroundColor: COLORS.primary },
-  filterPillText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  filterPill: { borderRadius: RADIUS.full, paddingHorizontal: 16, paddingVertical: 6, backgroundColor: colors.background },
+  filterPillActive: { backgroundColor: colors.primary },
+  filterPillText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   filterPillTextActive: { color: '#fff' },
   list: { padding: SPACING.md, gap: 10 },
   card: {
-    backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
+    backgroundColor: colors.white, borderRadius: RADIUS.lg, padding: SPACING.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   cardMid: { flex: 1, marginLeft: 12 },
-  partyName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
-  period: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  partyName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  period: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 12, fontWeight: '600' },
-  cardStats: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12 },
+  cardStats: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 },
   statCol: { flex: 1 },
-  statLabel: { fontSize: 11, color: COLORS.textMuted },
-  statValue: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, marginTop: 2 },
+  statLabel: { fontSize: 11, color: colors.textMuted },
+  statValue: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginTop: 2 },
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
-  dateText: { fontSize: 12, color: COLORS.textMuted },
+  dateText: { fontSize: 12, color: colors.textMuted },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl, minHeight: 200 },
-  errorText: { color: COLORS.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
-  retryBtn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingHorizontal: 20, paddingVertical: 10 },
+  errorText: { color: colors.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
+  retryBtn: { backgroundColor: colors.primary, borderRadius: RADIUS.md, paddingHorizontal: 20, paddingVertical: 10 },
   retryText: { color: '#fff', fontWeight: '700' },
-  emptyText: { color: COLORS.textMuted, fontSize: 14, textAlign: 'center' },
+  emptyText: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
 });

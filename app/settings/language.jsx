@@ -1,20 +1,22 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTranslation, LANGUAGES } from '../../constants/i18n';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 
 export default function LanguageScreen() {
   const insets = useSafeAreaInsets();
   const { t, language, setLanguage, languageLabel } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <ArrowLeft size={20} color={COLORS.textPrimary} />
+          <ArrowLeft size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>{t('selectLanguage')}</Text>
       </View>
@@ -39,17 +41,17 @@ export default function LanguageScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   backBtn: {
     width: 40,
@@ -57,24 +59,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
+  title: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
   content: { padding: SPACING.md },
-  sectionSubtitle: { fontSize: 14, color: COLORS.textSecondary, marginBottom: SPACING.md },
+  sectionSubtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: SPACING.md },
   languageCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   languageCardActive: {
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     backgroundColor: '#EEF2FF',
   },
-  languageLabel: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  languageLabelActive: { color: COLORS.primary },
-  languageCurrent: { marginTop: 6, fontSize: 13, color: COLORS.textSecondary },
+  languageLabel: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  languageLabelActive: { color: colors.primary },
+  languageCurrent: { marginTop: 6, fontSize: 13, color: colors.textSecondary },
 });

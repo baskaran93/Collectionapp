@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SPACING } from '../constants/theme';
+import { SPACING, useTheme } from '../constants/theme';
 
 export default function ScreenHeader({
   title,
@@ -20,12 +20,14 @@ export default function ScreenHeader({
   saveLabel = 'Save',
 }) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={[styles.wrapper, { paddingTop: insets.top }]}>
       <View style={styles.row}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <ChevronLeft size={24} color={COLORS.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>
           {title}
@@ -57,11 +59,11 @@ export default function ScreenHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   wrapper: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   row: {
     flexDirection: 'row',
@@ -74,7 +76,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -82,7 +84,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   actions: { flexDirection: 'row', gap: 8 },
   btn: {
@@ -92,8 +94,8 @@ const styles = StyleSheet.create({
     minWidth: 60,
     alignItems: 'center',
   },
-  primaryBtn: { backgroundColor: COLORS.primary },
-  dangerBtn: { backgroundColor: COLORS.dangerBg },
+  primaryBtn: { backgroundColor: colors.primary },
+  dangerBtn: { backgroundColor: colors.dangerBg },
   primaryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  dangerText: { color: COLORS.danger, fontWeight: '700', fontSize: 14 },
+  dangerText: { color: colors.danger, fontWeight: '700', fontSize: 14 },
 });

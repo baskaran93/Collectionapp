@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft, Languages, KeyRound, Users, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { getCurrentUser } from '../../constants/session';
 
 function MenuRow({ icon, title, subtitle, onPress }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.rowIcon}>{icon}</View>
@@ -15,7 +17,7 @@ function MenuRow({ icon, title, subtitle, onPress }) {
         <Text style={styles.rowTitle}>{title}</Text>
         {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
       </View>
-      <ChevronRight size={20} color={COLORS.textMuted} />
+      <ChevronRight size={20} color={colors.textMuted} />
     </TouchableOpacity>
   );
 }
@@ -23,6 +25,8 @@ function MenuRow({ icon, title, subtitle, onPress }) {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { t, languageLabel } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [currentUser, setCurrentUser] = useState(null);
   useEffect(() => { getCurrentUser().then(setCurrentUser); }, []);
@@ -31,7 +35,7 @@ export default function SettingsScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <ArrowLeft size={20} color={COLORS.textPrimary} />
+          <ArrowLeft size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>{t('settings')}</Text>
       </View>
@@ -39,14 +43,14 @@ export default function SettingsScreen() {
       <View style={styles.content}>
         <View style={styles.card}>
           <MenuRow
-            icon={<Languages size={18} color={COLORS.primary} />}
+            icon={<Languages size={18} color={colors.primary} />}
             title={t('selectLanguage')}
             subtitle={languageLabel}
             onPress={() => router.push('/settings/language')}
           />
           <View style={styles.rowDivider} />
           <MenuRow
-            icon={<KeyRound size={18} color={COLORS.primary} />}
+            icon={<KeyRound size={18} color={colors.primary} />}
             title="Change Password"
             subtitle={currentUser?.Username ? `Signed in as ${currentUser.Username}` : 'Update your account password'}
             onPress={() => router.push('/settings/change-password')}
@@ -55,7 +59,7 @@ export default function SettingsScreen() {
             <>
               <View style={styles.rowDivider} />
               <MenuRow
-                icon={<Users size={18} color={COLORS.primary} />}
+                icon={<Users size={18} color={colors.primary} />}
                 title="User Management"
                 subtitle="View, add, and edit team logins"
                 onPress={() => router.push('/user')}
@@ -68,17 +72,17 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   backBtn: {
     width: 40,
@@ -86,15 +90,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
+  title: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
   content: { padding: SPACING.md },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   row: {
@@ -113,7 +117,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rowMid: { flex: 1 },
-  rowTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  rowSubtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
-  rowDivider: { height: 1, backgroundColor: COLORS.border, marginLeft: SPACING.md + 36 + 12 },
+  rowTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  rowSubtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  rowDivider: { height: 1, backgroundColor: colors.border, marginLeft: SPACING.md + 36 + 12 },
 });

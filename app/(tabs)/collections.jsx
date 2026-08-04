@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Search, Plus, Edit, TrendingUp, Calendar, IndianRupee, CloudOff } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
 import Avatar from '../../components/Avatar';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 import { getQueue } from '../../constants/offlineQueue';
 
@@ -34,6 +34,8 @@ function fmt(n) {
 export default function CollectionsScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -132,9 +134,9 @@ export default function CollectionsScreen() {
               <Text style={styles.modeText}>{item.PaymentMode}</Text>
             </View>
             {item._pending ? (
-              <View style={[styles.badge, { backgroundColor: COLORS.warningBg, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
-                <CloudOff size={11} color={COLORS.warningText} />
-                <Text style={[styles.badgeText, { color: COLORS.warningText }]}>Pending Sync</Text>
+              <View style={[styles.badge, { backgroundColor: colors.warningBg, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                <CloudOff size={11} color={colors.warningText} />
+                <Text style={[styles.badgeText, { color: colors.warningText }]}>Pending Sync</Text>
               </View>
             ) : (
               <View style={[styles.badge, { backgroundColor: ss.bg }]}>
@@ -146,7 +148,7 @@ export default function CollectionsScreen() {
             <Text style={styles.refText}>Ref: {item.ReferenceNo}</Text>
           ) : null}
         </View>
-        {!item._pending && <Edit size={16} color={COLORS.textMuted} style={{ marginLeft: 8 }} />}
+        {!item._pending && <Edit size={16} color={colors.textMuted} style={{ marginLeft: 8 }} />}
       </TouchableOpacity>
     );
   };
@@ -168,7 +170,7 @@ export default function CollectionsScreen() {
       <View style={styles.statsStrip}>
         <View style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: '#EEF2FF' }]}>
-            <IndianRupee size={16} color={COLORS.primary} />
+            <IndianRupee size={16} color={colors.primary} />
           </View>
           <View>
             <Text style={styles.statLabel}>{t('today')}</Text>
@@ -186,7 +188,7 @@ export default function CollectionsScreen() {
         </View>
         <View style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: '#DCFCE7' }]}>
-            <TrendingUp size={16} color={COLORS.success} />
+            <TrendingUp size={16} color={colors.success} />
           </View>
           <View>
             <Text style={styles.statLabel}>{t('allTime')}</Text>
@@ -198,11 +200,11 @@ export default function CollectionsScreen() {
       {/* Search */}
       <View style={styles.searchArea}>
         <View style={styles.searchBox}>
-          <Search size={16} color={COLORS.textSecondary} />
+          <Search size={16} color={colors.textSecondary} />
             <TextInput
             style={styles.searchInput}
             placeholder={t('searchPartyReference')}
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
           />
@@ -226,7 +228,7 @@ export default function CollectionsScreen() {
 
       {/* List */}
       {loading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>
+        <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
       ) : error ? (
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
@@ -241,7 +243,7 @@ export default function CollectionsScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { await onRefresh(); getQueue().then(setPendingItems); }} tintColor={COLORS.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { await onRefresh(); getQueue().then(setPendingItems); }} tintColor={colors.primary} />}
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.emptyText}>
@@ -255,55 +257,55 @@ export default function CollectionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
-  subtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
-  addBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
+  subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  addBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
   statsStrip: {
     flexDirection: 'row', gap: 10,
     paddingHorizontal: SPACING.md, paddingVertical: 12,
-    backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   statCard: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   statIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  statLabel: { fontSize: 11, color: COLORS.textMuted },
-  statVal: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
-  searchArea: { paddingHorizontal: SPACING.md, paddingTop: 10, paddingBottom: 4, backgroundColor: COLORS.white },
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background, borderRadius: RADIUS.md, paddingHorizontal: 12, gap: 8, height: 40 },
-  searchInput: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
-  filterRow: { flexGrow: 0, height: 52, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  statLabel: { fontSize: 11, color: colors.textMuted },
+  statVal: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
+  searchArea: { paddingHorizontal: SPACING.md, paddingTop: 10, paddingBottom: 4, backgroundColor: colors.white },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: RADIUS.md, paddingHorizontal: 12, gap: 8, height: 40 },
+  searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary },
+  filterRow: { flexGrow: 0, height: 52, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
   filterContent: { paddingHorizontal: SPACING.md, paddingVertical: 10, gap: 8, alignItems: 'center' },
-  filterPill: { borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: COLORS.background },
-  filterPillActive: { backgroundColor: COLORS.primary },
-  filterPillText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  filterPill: { borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: colors.background },
+  filterPillActive: { backgroundColor: colors.primary },
+  filterPillText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   filterPillTextActive: { color: '#fff' },
   list: { padding: SPACING.md, gap: 10 },
   card: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
+    backgroundColor: colors.white, borderRadius: RADIUS.lg, padding: SPACING.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
-  cardPending: { borderWidth: 1, borderColor: COLORS.warning, borderStyle: 'dashed' },
+  cardPending: { borderWidth: 1, borderColor: colors.warning, borderStyle: 'dashed' },
   cardBody: { flex: 1, marginLeft: 12 },
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  partyName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
-  amount: { fontSize: 15, fontWeight: '700', color: COLORS.success },
+  partyName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  amount: { fontSize: 15, fontWeight: '700', color: colors.success },
   cardBottomRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  dateText: { fontSize: 12, color: COLORS.textSecondary },
-  modeTag: { backgroundColor: COLORS.background, borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 2 },
-  modeText: { fontSize: 11, fontWeight: '600', color: COLORS.textSecondary },
+  dateText: { fontSize: 12, color: colors.textSecondary },
+  modeTag: { backgroundColor: colors.background, borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 2 },
+  modeText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
   badge: { borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 2 },
   badgeText: { fontSize: 11, fontWeight: '600' },
-  refText: { fontSize: 12, color: COLORS.textMuted, marginTop: 4 },
+  refText: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl, minHeight: 200 },
-  errorText: { color: COLORS.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
-  retryBtn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingHorizontal: 20, paddingVertical: 10 },
+  errorText: { color: colors.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
+  retryBtn: { backgroundColor: colors.primary, borderRadius: RADIUS.md, paddingHorizontal: 20, paddingVertical: 10 },
   retryText: { color: '#fff', fontWeight: '700' },
-  emptyText: { color: COLORS.textMuted, fontSize: 14, textAlign: 'center' },
+  emptyText: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
 });

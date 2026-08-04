@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Search, Plus, Phone, MapPin, Edit, RefreshCw } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
 import Avatar from '../../components/Avatar';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 
 function formatCurrency(n) {
@@ -28,6 +28,8 @@ function formatCurrency(n) {
 export default function PartiesScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -79,13 +81,13 @@ export default function PartiesScreen() {
         <View style={styles.infoRow}>
           {item.Phone ? (
             <View style={styles.infoChip}>
-              <Phone size={13} color={COLORS.textSecondary} />
+              <Phone size={13} color={colors.textSecondary} />
               <Text style={styles.infoText}>{item.Phone}</Text>
             </View>
           ) : null}
           {item.Address ? (
             <View style={styles.infoChip}>
-              <MapPin size={13} color={COLORS.textSecondary} />
+              <MapPin size={13} color={colors.textSecondary} />
               <Text style={styles.infoText} numberOfLines={1}>{item.Address}</Text>
             </View>
           ) : null}
@@ -95,12 +97,12 @@ export default function PartiesScreen() {
         <Text
           style={[
             styles.balance,
-            { color: (item.Balance || 0) > 0 ? COLORS.danger : COLORS.success },
+            { color: (item.Balance || 0) > 0 ? colors.danger : colors.success },
           ]}
         >
           {formatCurrency(item.Balance)}
         </Text>
-        <Edit size={16} color={COLORS.textMuted} style={{ marginTop: 6 }} />
+        <Edit size={16} color={colors.textMuted} style={{ marginTop: 6 }} />
       </View>
     </TouchableOpacity>
   );
@@ -121,24 +123,24 @@ export default function PartiesScreen() {
       {/* Search */}
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
-          <Search size={16} color={COLORS.textSecondary} />
+          <Search size={16} color={colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
             placeholder={t('searchNameContact')}
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
           />
         </View>
         <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-          <RefreshCw size={16} color={COLORS.textSecondary} />
+          <RefreshCw size={16} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
       {/* List */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -154,7 +156,7 @@ export default function PartiesScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.emptyText}>
@@ -168,23 +170,23 @@ export default function PartiesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
-  subtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  title: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
+  subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   addBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center', alignItems: 'center',
   },
   searchRow: {
@@ -192,32 +194,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     gap: 10,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     borderRadius: RADIUS.md,
     paddingHorizontal: 12,
     gap: 8,
     height: 40,
   },
-  searchInput: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
+  searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary },
   refreshBtn: {
     width: 40, height: 40,
     justifyContent: 'center', alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     borderRadius: RADIUS.md,
   },
   list: { padding: SPACING.md, gap: 10 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     shadowColor: '#000',
@@ -227,19 +229,19 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardBody: { flex: 1, marginLeft: 12 },
-  partyName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
-  contactPerson: { fontSize: 13, color: COLORS.textSecondary, marginTop: 1 },
+  partyName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  contactPerson: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
   infoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   infoChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  infoText: { fontSize: 12, color: COLORS.textSecondary, maxWidth: 120 },
+  infoText: { fontSize: 12, color: colors.textSecondary, maxWidth: 120 },
   cardRight: { alignItems: 'flex-end', paddingLeft: 8 },
   balance: { fontSize: 14, fontWeight: '700' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
-  errorText: { color: COLORS.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
+  errorText: { color: colors.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
   retryBtn: {
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.md,
+    backgroundColor: colors.primary, borderRadius: RADIUS.md,
     paddingHorizontal: 20, paddingVertical: 10,
   },
   retryText: { color: '#fff', fontWeight: '700' },
-  emptyText: { color: COLORS.textMuted, fontSize: 14, textAlign: 'center' },
+  emptyText: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
 });

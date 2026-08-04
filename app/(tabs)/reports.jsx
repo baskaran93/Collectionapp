@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FileText, Layers, Clock3, Download, TrendingUp, MessageCircle, CalendarDays } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTranslation } from '../../constants/i18n';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -95,6 +95,8 @@ export default function ReportsScreen() {
 
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [collections, setCollections] = useState([]);
   const [loans, setLoans] = useState([]);
   const [parties, setParties] = useState([]);
@@ -503,7 +505,7 @@ export default function ReportsScreen() {
         scrollEventThrottle={16}
         style={styles.content}
         contentContainerStyle={{ paddingBottom: 300 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -544,7 +546,7 @@ export default function ReportsScreen() {
                 onPress={() => setSelectedReport(key)}
               >
                 <View style={[styles.tabIcon, active && styles.tabIconActive]}>
-                  <Icon size={14} color={COLORS.primary} />
+                  <Icon size={14} color={colors.primary} />
                 </View>
                 <Text style={[styles.tabText, active && styles.tabTextActive]}>{REPORT_LABELS[key]}</Text>
               </TouchableOpacity>
@@ -558,7 +560,7 @@ export default function ReportsScreen() {
                 onFocus={() => handleFocus(0)}
             style={styles.searchInput}
             placeholder="Search party name..."
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={partyQuery}
             onChangeText={setPartyQuery}
             returnKeyType="search"
@@ -589,7 +591,7 @@ export default function ReportsScreen() {
 
         {loading ? (
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
           <View style={styles.reportContent}>
@@ -619,11 +621,11 @@ export default function ReportsScreen() {
               <View>
                 <View style={styles.dateFilterRow}>
                   <TouchableOpacity style={styles.dateFilterBtn} onPress={() => setShowFromPicker(true)}>
-                    <CalendarDays size={14} color={COLORS.primary} />
+                    <CalendarDays size={14} color={colors.primary} />
                     <Text style={styles.dateFilterText}>{fromDate ? new Date(fromDate).toLocaleDateString('en-IN') : 'From date'}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.dateFilterBtn} onPress={() => setShowToPicker(true)}>
-                    <CalendarDays size={14} color={COLORS.primary} />
+                    <CalendarDays size={14} color={colors.primary} />
                     <Text style={styles.dateFilterText}>{toDate ? new Date(toDate).toLocaleDateString('en-IN') : 'To date'}</Text>
                   </TouchableOpacity>
                   {(fromDate || toDate) ? (
@@ -781,19 +783,19 @@ export default function ReportsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
+  title: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
   statsRight: { flexDirection: 'row', gap: 10 },
   exportButton: {
     flexDirection: 'row',
@@ -802,16 +804,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   exportLabel: { color: '#fff', fontWeight: '700', fontSize: 13 },
   content: { flex: 1 },
   section: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md },
-  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: SPACING.sm, color: COLORS.textPrimary },
+  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: SPACING.sm, color: colors.textPrimary },
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   summaryCard: {
     flexBasis: '48%',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     shadowColor: '#000',
@@ -821,8 +823,8 @@ const styles = StyleSheet.create({
     elevation: 1,
     marginBottom: 12,
   },
-  summaryLabel: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 },
-  summaryValue: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
+  summaryLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 4 },
+  summaryValue: { fontSize: 18, fontWeight: '800', color: colors.textPrimary },
   tabRow: { paddingVertical: SPACING.sm, gap: 10 },
   tabItem: {
     flexDirection: 'row',
@@ -831,13 +833,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   tabItemActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   tabIcon: {
     width: 28,
@@ -850,36 +852,36 @@ const styles = StyleSheet.create({
   tabIconActive: {
     backgroundColor: '#fff',
   },
-  tabText: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
+  tabText: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
   tabTextActive: { color: '#fff' },
   searchSection: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
   searchInput: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: 12,
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   chipRow: { paddingTop: SPACING.sm, gap: 8 },
   chip: {
-    backgroundColor: COLORS.white,
-    borderColor: COLORS.border,
+    backgroundColor: colors.white,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: RADIUS.full,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   chipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  chipText: { color: COLORS.textSecondary, fontWeight: '700', fontSize: 12 },
+  chipText: { color: colors.textSecondary, fontWeight: '700', fontSize: 12 },
   chipTextActive: { color: '#fff' },
   reportContent: { padding: SPACING.md, paddingBottom: 32 },
   reportBox: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     shadowColor: '#000',
@@ -888,12 +890,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 1,
   },
-  reportHeading: { fontSize: 17, fontWeight: '800', marginBottom: SPACING.sm, color: COLORS.textPrimary },
-  reportRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderColor: COLORS.border },
-  reportLabel: { color: COLORS.textSecondary, fontSize: 13 },
-  reportValue: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
+  reportHeading: { fontSize: 17, fontWeight: '800', marginBottom: SPACING.sm, color: colors.textPrimary },
+  reportRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderColor: colors.border },
+  reportLabel: { color: colors.textSecondary, fontSize: 13 },
+  reportValue: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: 12,
@@ -904,11 +906,11 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
-  cardMeta: { fontSize: 12, color: COLORS.textSecondary },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  cardMeta: { fontSize: 12, color: colors.textSecondary },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
-  label: { color: COLORS.textSecondary, fontSize: 13 },
-  value: { color: COLORS.textPrimary, fontWeight: '700' },
+  label: { color: colors.textSecondary, fontSize: 13 },
+  value: { color: colors.textPrimary, fontWeight: '700' },
   statusPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -918,7 +920,7 @@ const styles = StyleSheet.create({
   },
   statusActive: { backgroundColor: '#DBEAFE', color: '#1D4ED8' },
   statusOverdue: { backgroundColor: '#FEE2E2', color: '#991B1B' },
-  emptyText: { textAlign: 'center', color: COLORS.textMuted, padding: SPACING.lg },
+  emptyText: { textAlign: 'center', color: colors.textMuted, padding: SPACING.lg },
   dateFilterRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: SPACING.md, flexWrap: 'wrap' },
   dateFilterBtn: {
     flexDirection: 'row',
@@ -927,12 +929,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
-  dateFilterText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
-  dateFilterClear: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  dateFilterText: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+  dateFilterClear: { fontSize: 13, fontWeight: '700', color: colors.primary },
   center: { minHeight: 200, justifyContent: 'center', alignItems: 'center' },
   floatingOverlay: {
     position: 'absolute',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,35 +13,26 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { useLocalSearchParams, router } from 'expo-router';
 import ScreenHeader from '../../components/ScreenHeader';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 import { getCurrentUser } from '../../constants/session';
 
 const ROLE_OPTIONS = ['User', 'Admin'];
 
 function Field({ label, required, hint, children }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.field}>
       <Text style={styles.label}>
         {label}
-        {required ? <Text style={{ color: COLORS.danger }}> *</Text> : null}
+        {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
       </Text>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       {children}
     </View>
   );
 }
-
-const INPUT_STYLE = {
-  backgroundColor: COLORS.background,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: RADIUS.md,
-  paddingHorizontal: 14,
-  paddingVertical: 12,
-  fontSize: 15,
-  color: COLORS.textPrimary,
-};
 
 export default function UserDetailScreen() {
   const scrollRef = useRef(null);
@@ -74,6 +65,19 @@ export default function UserDetailScreen() {
   const handleFocus = (idx) => {
     focusedIndexRef.current = idx;
     setTimeout(adjustScrollForFocusedField, 50);
+  };
+
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const INPUT_STYLE = {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.textPrimary,
   };
 
   const { id } = useLocalSearchParams();
@@ -168,7 +172,7 @@ export default function UserDetailScreen() {
                 onFocus={() => handleFocus(0)}
                 style={INPUT_STYLE}
                 placeholder="e.g. rajesh.agent"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={form.Username}
                 onChangeText={set('Username')}
                 autoCapitalize="none"
@@ -182,7 +186,7 @@ export default function UserDetailScreen() {
                 onFocus={() => handleFocus(1)}
                 style={INPUT_STYLE}
                 placeholder={isNew ? 'At least 6 characters' : 'New password (optional)'}
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={form.Password}
                 onChangeText={set('Password')}
                 secureTextEntry
@@ -195,7 +199,7 @@ export default function UserDetailScreen() {
                 onFocus={() => handleFocus(2)}
                 style={INPUT_STYLE}
                 placeholder="Re-enter password"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={form.ConfirmPassword}
                 onChangeText={set('ConfirmPassword')}
                 secureTextEntry
@@ -216,21 +220,21 @@ export default function UserDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: SPACING.md, paddingBottom: 40 },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   field: { marginBottom: SPACING.md },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 6 },
-  hint: { fontSize: 12, color: COLORS.textMuted, marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 6 },
+  hint: { fontSize: 12, color: colors.textMuted, marginBottom: 6 },
   pickerWrap: {
-    backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, overflow: 'hidden',
+    backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: RADIUS.md, overflow: 'hidden',
   },
-  picker: { height: 48, color: COLORS.textPrimary },
+  picker: { height: 48, color: colors.textPrimary },
 });

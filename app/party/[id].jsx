@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,31 +13,21 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import ScreenHeader from '../../components/ScreenHeader';
 import { useTranslation } from '../../constants/i18n';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 
 function Field({ label, required, children }) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>
+    <View style={{ marginBottom: SPACING.md }}>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 6 }}>
         {label}
-        {required ? <Text style={{ color: COLORS.danger }}> *</Text> : null}
+        {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
       </Text>
       {children}
     </View>
   );
 }
-
-const INPUT_STYLE = {
-  backgroundColor: COLORS.background,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: RADIUS.md,
-  paddingHorizontal: 14,
-  paddingVertical: 12,
-  fontSize: 15,
-  color: COLORS.textPrimary,
-};
 
 export default function PartyDetailScreen() {
   const scrollRef = useRef(null);
@@ -73,6 +63,18 @@ export default function PartyDetailScreen() {
   };
 
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const INPUT_STYLE = {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.textPrimary,
+  };
   const { id } = useLocalSearchParams();
   const isNew = !id || id === 'new';
 
@@ -187,7 +189,7 @@ export default function PartyDetailScreen() {
                 onFocus={() => handleFocus(0)}
                 style={INPUT_STYLE}
                 placeholder={t('enterPartyName') || 'e.g. Acme Corporation'}
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={form.PartyName}
                 onChangeText={set('PartyName')}
               />
@@ -199,7 +201,7 @@ export default function PartyDetailScreen() {
                 onFocus={() => handleFocus(1)}
                 style={INPUT_STYLE}
                 placeholder="Full Name"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={form.ContactPerson}
                 onChangeText={set('ContactPerson')}
               />
@@ -211,7 +213,7 @@ export default function PartyDetailScreen() {
                 onFocus={() => handleFocus(2)}
                 style={INPUT_STYLE}
                 placeholder="e.g. 29ABCDE1234F1Z5"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={form.GstNumber}
                 onChangeText={set('GstNumber')}
                 autoCapitalize="characters"
@@ -228,7 +230,7 @@ export default function PartyDetailScreen() {
                 onFocus={() => handleFocus(3)}
                 style={INPUT_STYLE}
                 placeholder="+91 98765 43210"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={form.Phone}
                 onChangeText={set('Phone')}
                 keyboardType="phone-pad"
@@ -241,7 +243,7 @@ export default function PartyDetailScreen() {
                 onFocus={() => handleFocus(4)}
                 style={INPUT_STYLE}
                 placeholder="contact@company.com"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={form.Email}
                 onChangeText={set('Email')}
                 keyboardType="email-address"
@@ -255,7 +257,7 @@ export default function PartyDetailScreen() {
                 onFocus={() => handleFocus(5)}
                 style={[INPUT_STYLE, { minHeight: 88, textAlignVertical: 'top', paddingTop: 12 }]}
                 placeholder="Complete address including street, city, and zip code"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={form.Address}
                 onChangeText={set('Address')}
                 multiline
@@ -269,14 +271,12 @@ export default function PartyDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 300 },
   card: {
-    backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
+    backgroundColor: colors.white, borderRadius: RADIUS.lg, padding: SPACING.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.md },
-  field: { marginBottom: SPACING.md },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 6 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: SPACING.md },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,13 +17,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useTranslation } from '../constants/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SPACING, RADIUS } from '../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../constants/theme';
 import { API_BASE } from '../constants/api';
 import { saveSession, isSessionValid } from '../constants/session';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -110,7 +112,7 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.input}
                 placeholder={t('enterUsername')}
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -126,7 +128,7 @@ export default function LoginScreen() {
                 <TextInput
                   style={[styles.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRightWidth: 0 }]}
                   placeholder={t('enterPassword')}
-                  placeholderTextColor={COLORS.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -138,9 +140,9 @@ export default function LoginScreen() {
                   onPress={() => setShowPassword((v) => !v)}
                 >
                   {showPassword ? (
-                    <EyeOff size={20} color={COLORS.textSecondary} />
+                    <EyeOff size={20} color={colors.textSecondary} />
                   ) : (
-                    <Eye size={20} color={COLORS.textSecondary} />
+                    <Eye size={20} color={colors.textSecondary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -167,7 +169,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   gradient: { flex: 1 },
   checkingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { flexGrow: 1, paddingHorizontal: SPACING.lg, justifyContent: 'center' },
@@ -184,7 +186,7 @@ const styles = StyleSheet.create({
   },
   logoImg: { width: 60, height: 60 },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     shadowColor: '#000',
@@ -193,25 +195,25 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 8,
   },
-  title: { fontSize: 26, fontWeight: '800', color: COLORS.textPrimary, textAlign: 'center' },
-  subtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', marginTop: 6, marginBottom: SPACING.xl },
+  title: { fontSize: 26, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
+  subtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 6, marginBottom: SPACING.xl },
   fieldGroup: { marginBottom: SPACING.md },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 6 },
   input: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontSize: 15,
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   passwordRow: { flexDirection: 'row' },
   eyeBtn: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     borderLeftWidth: 0,
     borderTopRightRadius: RADIUS.md,
     borderBottomRightRadius: RADIUS.md,
@@ -220,7 +222,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: RADIUS.md,
     paddingVertical: 15,
     alignItems: 'center',
@@ -228,5 +230,5 @@ const styles = StyleSheet.create({
   },
   loginBtnDisabled: { opacity: 0.7 },
   loginBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  footer: { textAlign: 'center', color: COLORS.textMuted, fontSize: 12, marginTop: SPACING.lg },
+  footer: { textAlign: 'center', color: colors.textMuted, fontSize: 12, marginTop: SPACING.lg },
 });

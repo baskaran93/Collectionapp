@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { CalendarDays } from 'lucide-react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import ScreenHeader from '../../components/ScreenHeader';
 import { useTranslation } from '../../constants/i18n';
-import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
 import { queueCollection } from '../../constants/offlineQueue';
 
@@ -48,12 +48,14 @@ function buildReceiptText(payload, party) {
 }
 
 function Field({ label, required, hint, children }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.field}>
       <View style={styles.labelRow}>
         <Text style={styles.label}>
           {label}
-          {required ? <Text style={{ color: COLORS.danger }}> *</Text> : null}
+          {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
         </Text>
         {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       </View>
@@ -62,18 +64,9 @@ function Field({ label, required, hint, children }) {
   );
 }
 
-const INPUT = {
-  backgroundColor: COLORS.background,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: RADIUS.md,
-  paddingHorizontal: 14,
-  paddingVertical: 12,
-  fontSize: 15,
-  color: COLORS.textPrimary,
-};
-
 function DateField({ label, required, value, onChange }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [show, setShow] = useState(false);
   const date = value ? new Date(value) : new Date();
   return (
@@ -81,14 +74,14 @@ function DateField({ label, required, value, onChange }) {
       <View style={styles.labelRow}>
         <Text style={styles.label}>
           {label}
-          {required ? <Text style={{ color: COLORS.danger }}> *</Text> : null}
+          {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
         </Text>
       </View>
       <TouchableOpacity style={styles.dateBtn} onPress={() => setShow(true)} activeOpacity={0.7}>
-        <Text style={[styles.dateBtnText, !value && { color: COLORS.textMuted }]}>
+        <Text style={[styles.dateBtnText, !value && { color: colors.textMuted }]}>
           {value || 'Select date'}
         </Text>
-        <CalendarDays size={16} color={COLORS.primary} />
+        <CalendarDays size={16} color={colors.primary} />
       </TouchableOpacity>
       {show && (
         <DateTimePicker
@@ -139,6 +132,18 @@ export default function CollectionDetailScreen() {
   };
 
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const INPUT = {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.textPrimary,
+  };
   const { id, loanId: loanIdParam, partyId: partyIdParam } = useLocalSearchParams();
   const isNew = !id || id === 'new';
 
@@ -365,7 +370,7 @@ export default function CollectionDetailScreen() {
                 <Text style={styles.loanSummaryTitle}>{t('activeLoanSummary') || 'Active Loan Summary'}</Text>
                 <View style={styles.loanRow}><Text style={styles.loanKey}>Loan Amount</Text><Text style={styles.loanVal}>₹{Number(selectedLoan.LoanAmount).toLocaleString('en-IN')}</Text></View>
                 <View style={styles.loanRow}><Text style={styles.loanKey}>Installments</Text><Text style={styles.loanVal}>{selectedLoan.NoOfInstallments} × {selectedLoan.InstallPeriod}</Text></View>
-                <View style={styles.loanRow}><Text style={styles.loanKey}>Per Installment</Text><Text style={[styles.loanVal, { color: COLORS.success, fontWeight: '700' }]}>₹{Number(selectedLoan.InstallmentAmount).toLocaleString('en-IN')}</Text></View>
+                <View style={styles.loanRow}><Text style={styles.loanKey}>Per Installment</Text><Text style={[styles.loanVal, { color: colors.success, fontWeight: '700' }]}>₹{Number(selectedLoan.InstallmentAmount).toLocaleString('en-IN')}</Text></View>
               </View>
             )}
           </View>
@@ -390,7 +395,7 @@ export default function CollectionDetailScreen() {
                 onFocus={() => handleFocus(0)}
                     style={INPUT}
                     placeholder="0.00"
-                    placeholderTextColor={COLORS.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     value={form.Amount}
                     onChangeText={set('Amount')}
                     keyboardType="decimal-pad"
@@ -422,7 +427,7 @@ export default function CollectionDetailScreen() {
                 onFocus={() => handleFocus(1)}
                   style={INPUT}
                   placeholder={form.PaymentMode === 'Cheque' ? 'Cheque Number' : form.PaymentMode === 'UPI' ? 'UPI Transaction ID' : 'Bank Reference No.'}
-                  placeholderTextColor={COLORS.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   value={form.ReferenceNo}
                   onChangeText={set('ReferenceNo')}
                 />
@@ -446,7 +451,7 @@ export default function CollectionDetailScreen() {
                 onFocus={() => handleFocus(2)}
               style={[INPUT, { minHeight: 80, textAlignVertical: 'top', paddingTop: 12 }]}
               placeholder="Add collection remarks, receipt ref..."
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={form.Notes}
               onChangeText={set('Notes')}
               multiline
@@ -458,42 +463,42 @@ export default function CollectionDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 300 },
   card: {
-    backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
+    backgroundColor: colors.white, borderRadius: RADIUS.lg, padding: SPACING.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.md },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: SPACING.md },
   field: { marginBottom: SPACING.md },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
-  hint: { fontSize: 11, color: COLORS.primary, backgroundColor: '#EEF2FF', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  label: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+  hint: { fontSize: 11, color: colors.primary, backgroundColor: '#EEF2FF', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
   row: { flexDirection: 'row', gap: 12 },
   pickerWrap: {
-    backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, overflow: 'hidden',
+    backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: RADIUS.md, overflow: 'hidden',
   },
   pickerDisabled: { opacity: 0.6 },
-  picker: { height: 48, color: COLORS.textPrimary },
-  loanSummary: { backgroundColor: COLORS.background, borderRadius: RADIUS.md, padding: 12, marginTop: 4 },
-  loanSummaryTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 8 },
+  picker: { height: 48, color: colors.textPrimary },
+  loanSummary: { backgroundColor: colors.background, borderRadius: RADIUS.md, padding: 12, marginTop: 4 },
+  loanSummaryTitle: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginBottom: 8 },
   loanRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  loanKey: { fontSize: 13, color: COLORS.textSecondary },
-  loanVal: { fontSize: 13, color: COLORS.textPrimary, fontWeight: '600' },
+  loanKey: { fontSize: 13, color: colors.textSecondary },
+  loanVal: { fontSize: 13, color: colors.textPrimary, fontWeight: '600' },
   modeGroup: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   modeBtn: {
     flex: 1, minWidth: 72, paddingVertical: 10, borderRadius: RADIUS.md,
-    backgroundColor: COLORS.background, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: colors.background, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border,
   },
-  modeBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  modeBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  modeBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  modeBtnText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   modeBtnTextActive: { color: '#fff' },
   dateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border,
     borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 12,
   },
-  dateBtnText: { fontSize: 15, color: COLORS.textPrimary },
+  dateBtnText: { fontSize: 15, color: colors.textPrimary },
 });
