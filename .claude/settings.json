@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const r = require\\('expo-router'\\); console.log\\(typeof r.useFocusEffect\\)\")",
+      "Bash(curl -s -o /dev/null -w \"8082 status:%{http_code}\\\\n\" http://localhost:8082/status)",
+      "Read(//c/Users/baskaran/Downloads/**)",
+      "Bash(mkdir -p 'C:\\\\Users\\\\baskaran\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--01Boss-06React-Native-Collectionapp\\\\60467816-fbb5-4cbb-bce8-c608e8edaef1\\\\scratchpad/pptxgen')",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(node build.js)",
+      "Bash(awk '/export enum ShapeType/,/^\\\\t}/' 'C:\\\\Users\\\\baskaran\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--01Boss-06React-Native-Collectionapp\\\\60467816-fbb5-4cbb-bce8-c608e8edaef1\\\\scratchpad/pptxgen/node_modules/pptxgenjs/types/index.d.ts')",
+      "Bash(python -c ' *)",
+      "WebFetch(domain:chatgpt.com)",
+      "Bash(sed -i 's/position: fixed; top: 100px; right: 16px; z-index: 1000;/position: fixed; top: 122px; right: 16px; z-index: 1000;/' 'C:\\\\Users\\\\baskaran\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--01Boss-06React-Native-Collectionapp\\\\60467816-fbb5-4cbb-bce8-c608e8edaef1\\\\scratchpad\\\\collection-erp-demo.template.html')",
+      "Bash(sed -i 's/position: fixed; top: 100px; left: 16px; z-index: 999;/position: fixed; top: 122px; left: 16px; z-index: 999;/' 'C:\\\\Users\\\\baskaran\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--01Boss-06React-Native-Collectionapp\\\\60467816-fbb5-4cbb-bce8-c608e8edaef1\\\\scratchpad\\\\collection-erp-demo.template.html')"
+    ]
+  }
+}

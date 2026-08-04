@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
@@ -24,6 +25,16 @@ const PERIOD_OPTIONS = [
   { value: 'month', label: 'Monthly' },
 ];
 const STATUS_OPTIONS = ['Active', 'Closed', 'Overdue'];
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+  { value: 7, label: 'Sun' },
+];
+const MONTH_DATE_OPTIONS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const INPUT = {
   backgroundColor: COLORS.background,
@@ -89,6 +100,40 @@ function DateField({ label, required, hint, value, onChange, disabled }) {
 }
 
 export default function LoanDetailScreen() {
+  const scrollRef = useRef(null);
+  const scrollYRef = useRef(0);
+  const inputRefs = useRef([]);
+  const focusedIndexRef = useRef(null);
+
+  const adjustScrollForFocusedField = () => {
+    const idx = focusedIndexRef.current;
+    const node = idx != null ? inputRefs.current[idx] : null;
+    const scroller = scrollRef.current;
+    if (!node || !scroller || !node.measure || !scroller.measure) {
+      return;
+    }
+    scroller.measure((sx, sy, sw, sh, spx, spy) => {
+      node.measure((x, y, w, h, px, py) => {
+        const visibleBottom = spy + sh;
+        const fieldBottom = py + h;
+        if (fieldBottom > visibleBottom - 16) {
+          const delta = fieldBottom - visibleBottom + 24;
+          scroller.scrollTo({ y: scrollYRef.current + delta, animated: true });
+        }
+      });
+    });
+  };
+
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', adjustScrollForFocusedField);
+    return () => sub.remove();
+  }, []);
+
+  const handleFocus = (idx) => {
+    focusedIndexRef.current = idx;
+    setTimeout(adjustScrollForFocusedField, 50);
+  };
+
   const { id } = useLocalSearchParams();
   const isNew = !id || id === 'new';
 
@@ -164,7 +209,21 @@ export default function LoanDetailScreen() {
     if (!form.LoanAmount) { Alert.alert('Validation', 'Loan amount is required.'); return; }
     if (!form.LoanStartDate) { Alert.alert('Validation', 'Start date is required.'); return; }
     if (!form.NoOfInstallments) { Alert.alert('Validation', 'Number of installments is required.'); return; }
+    if (hasInstallmentMismatch) {
+      Alert.alert(
+        'Amount Mismatch',
+        `Installments total ₹${installmentTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}, but the loan amount is ₹${totalAmount.toLocaleString('en-IN')}. Save anyway?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Save Anyway', onPress: () => saveLoan() },
+        ],
+      );
+      return;
+    }
+    await saveLoan();
+  };
 
+  const saveLoan = async () => {
     setSaving(true);
     try {
       const payload = {
@@ -199,10 +258,14 @@ export default function LoanDetailScreen() {
         onPress: async () => {
           setSaving(true);
           try {
-            await fetch(`${API_BASE}/api/loans/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_BASE}/api/loans/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.detail || 'Failed to delete loan.');
+            }
             router.replace('/(tabs)/loans');
-          } catch {
-            Alert.alert('Error', 'Failed to delete loan.');
+          } catch (e) {
+            Alert.alert('Unable to Delete Loan', e.message || 'Failed to delete loan.');
             setSaving(false);
           }
         },
@@ -213,9 +276,11 @@ export default function LoanDetailScreen() {
   const totalAmount = parseFloat(form.LoanAmount) || 0;
   const installAmt = parseFloat(form.InstallmentAmount) || 0;
   const noOfInst = parseInt(form.NoOfInstallments) || 0;
+  const installmentTotal = installAmt * noOfInst;
+  const hasInstallmentMismatch = noOfInst > 0 && totalAmount > 0 && Math.abs(installmentTotal - totalAmount) > 1;
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <View style={styles.root}>
         <ScreenHeader
           title={isNew ? 'New Loan' : 'Edit Loan'}
@@ -226,7 +291,7 @@ export default function LoanDetailScreen() {
           saveLabel="Save Loan"
         />
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Summary strip */}
           {totalAmount > 0 && (
             <View style={styles.summaryStrip}>
@@ -240,9 +305,16 @@ export default function LoanDetailScreen() {
               </View>
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryLabel}>Total</Text>
-                <Text style={styles.summaryValue}>₹{(installAmt * noOfInst).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</Text>
+                <Text style={[styles.summaryValue, hasInstallmentMismatch && { color: COLORS.warning }]}>
+                  ₹{installmentTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </Text>
               </View>
             </View>
+          )}
+          {hasInstallmentMismatch && (
+            <Text style={styles.mismatchWarning}>
+              ⚠ Installments total ₹{installmentTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}, which doesn't match the loan amount of ₹{totalAmount.toLocaleString('en-IN')}.
+            </Text>
           )}
 
           {/* Party & Loan */}
@@ -268,6 +340,8 @@ export default function LoanDetailScreen() {
               <View style={{ flex: 1 }}>
                 <Field label="Loan Amount (₹)" required>
                   <TextInput
+                ref={(r) => { inputRefs.current[0] = r; }}
+                onFocus={() => handleFocus(0)}
                     style={INPUT}
                     placeholder="0.00"
                     placeholderTextColor={COLORS.textMuted}
@@ -320,6 +394,8 @@ export default function LoanDetailScreen() {
               <View style={{ flex: 1 }}>
                 <Field label="No. of Installments" required>
                   <TextInput
+                ref={(r) => { inputRefs.current[1] = r; }}
+                onFocus={() => handleFocus(1)}
                     style={INPUT}
                     placeholder="e.g. 12"
                     placeholderTextColor={COLORS.textMuted}
@@ -332,6 +408,8 @@ export default function LoanDetailScreen() {
               <View style={{ flex: 1 }}>
                 <Field label="Inst. Amount (₹)" hint="auto">
                   <TextInput
+                ref={(r) => { inputRefs.current[2] = r; }}
+                onFocus={() => handleFocus(2)}
                     style={INPUT}
                     placeholder="0.00"
                     placeholderTextColor={COLORS.textMuted}
@@ -349,7 +427,7 @@ export default function LoanDetailScreen() {
                   <TouchableOpacity
                     key={opt.value}
                     style={[styles.periodBtn, form.InstallPeriod === opt.value && styles.periodBtnActive]}
-                    onPress={() => set('InstallPeriod')(opt.value)}
+                    onPress={() => setForm((p) => ({ ...p, InstallPeriod: opt.value, InstallmentDate: '' }))}
                   >
                     <Text style={[styles.periodBtnText, form.InstallPeriod === opt.value && styles.periodBtnTextActive]}>
                       {opt.label}
@@ -359,22 +437,48 @@ export default function LoanDetailScreen() {
               </View>
             </Field>
 
-            <Field label={`Day offset (${form.InstallPeriod === 'month' ? '1–31' : form.InstallPeriod === 'week' ? '1–7' : 'offset'})`}>
-              <TextInput
-                style={INPUT}
-                placeholder={form.InstallPeriod === 'month' ? '1 – 31' : '1 – 7'}
-                placeholderTextColor={COLORS.textMuted}
-                value={form.InstallmentDate}
-                onChangeText={set('InstallmentDate')}
-                keyboardType="number-pad"
-              />
-            </Field>
+            {form.InstallPeriod === 'week' && (
+              <Field label="Collection Day" hint="Which day of the week">
+                <View style={styles.dayOffsetGroup}>
+                  {WEEKDAY_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[styles.dayChip, Number(form.InstallmentDate) === opt.value && styles.dayChipActive]}
+                      onPress={() => set('InstallmentDate')(String(opt.value))}
+                    >
+                      <Text style={[styles.dayChipText, Number(form.InstallmentDate) === opt.value && styles.dayChipTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </Field>
+            )}
+
+            {form.InstallPeriod === 'month' && (
+              <Field label="Collection Date" hint="Which date of the month">
+                <View style={styles.pickerWrap}>
+                  <Picker
+                    selectedValue={form.InstallmentDate}
+                    onValueChange={set('InstallmentDate')}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="— Select a date —" value="" />
+                    {MONTH_DATE_OPTIONS.map((d) => (
+                      <Picker.Item key={d} label={String(d)} value={String(d)} />
+                    ))}
+                  </Picker>
+                </View>
+              </Field>
+            )}
           </View>
 
           {/* Notes */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Notes</Text>
             <TextInput
+                ref={(r) => { inputRefs.current[4] = r; }}
+                onFocus={() => handleFocus(4)}
               style={[INPUT, { minHeight: 80, textAlignVertical: 'top', paddingTop: 12 }]}
               placeholder="Any remarks about this loan…"
               placeholderTextColor={COLORS.textMuted}
@@ -391,13 +495,14 @@ export default function LoanDetailScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 40 },
+  scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 300 },
   summaryStrip: {
     flexDirection: 'row', backgroundColor: COLORS.primary, borderRadius: RADIUS.lg, padding: SPACING.md, gap: 8,
   },
   summaryItem: { flex: 1, alignItems: 'center' },
   summaryLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)' },
   summaryValue: { fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 2 },
+  mismatchWarning: { fontSize: 12, color: COLORS.warning, fontWeight: '600' },
   card: {
     backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
@@ -421,6 +526,15 @@ const styles = StyleSheet.create({
   periodBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   periodBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
   periodBtnTextActive: { color: '#fff' },
+  dayOffsetGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  dayChip: {
+    paddingVertical: 10, paddingHorizontal: 14, borderRadius: RADIUS.full,
+    backgroundColor: COLORS.background, alignItems: 'center',
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  dayChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  dayChipText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  dayChipTextActive: { color: '#fff' },
   dateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border,

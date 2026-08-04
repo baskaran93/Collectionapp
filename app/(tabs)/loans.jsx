@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Search, Plus, Calendar, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
 import Avatar from '../../components/Avatar';
@@ -37,8 +37,13 @@ export default function LoansScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const { status: statusParam } = useLocalSearchParams();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter] = useState(FILTERS.includes(statusParam) ? statusParam : 'All');
+
+  useEffect(() => {
+    if (statusParam && FILTERS.includes(statusParam)) setFilter(statusParam);
+  }, [statusParam]);
 
   const fetchLoans = useCallback(async () => {
     try {
@@ -54,7 +59,11 @@ export default function LoansScreen() {
     }
   }, []);
 
-  useEffect(() => { fetchLoans(); }, [fetchLoans]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchLoans();
+    }, [fetchLoans]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -225,8 +234,8 @@ const styles = StyleSheet.create({
   searchArea: { paddingHorizontal: SPACING.md, paddingTop: 10, paddingBottom: 4, backgroundColor: COLORS.white },
   searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background, borderRadius: RADIUS.md, paddingHorizontal: 12, gap: 8, height: 40 },
   searchInput: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
-  filterRow: { backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  filterContent: { paddingHorizontal: SPACING.md, paddingVertical: 10, gap: 8 },
+  filterRow: { flexGrow: 0, height: 52, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  filterContent: { paddingHorizontal: SPACING.md, paddingVertical: 10, gap: 8, alignItems: 'center' },
   filterPill: { borderRadius: RADIUS.full, paddingHorizontal: 16, paddingVertical: 6, backgroundColor: COLORS.background },
   filterPillActive: { backgroundColor: COLORS.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },

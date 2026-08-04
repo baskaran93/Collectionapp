@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Search, Plus, Phone, MapPin, Edit, RefreshCw } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
 import Avatar from '../../components/Avatar';
@@ -48,7 +48,11 @@ export default function PartiesScreen() {
     }
   }, []);
 
-  useEffect(() => { fetchParties(); }, [fetchParties]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchParties();
+    }, [fetchParties]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);

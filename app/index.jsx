@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useTranslation } from '../constants/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../constants/theme';
 import { API_BASE } from '../constants/api';
+import { saveSession, isSessionValid } from '../constants/session';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -27,6 +28,17 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      if (await isSessionValid()) {
+        router.replace('/(tabs)');
+      } else {
+        setCheckingSession(false);
+      }
+    })();
+  }, []);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -45,6 +57,8 @@ export default function LoginScreen() {
         Alert.alert(t('loginFailed'), err.detail || t('invalidCredentials'));
         return;
       }
+      const user = await res.json().catch(() => null);
+      await saveSession(user);
       router.replace('/(tabs)');
     } catch {
       Alert.alert(t('connectionError'), t('connectionError'));
@@ -53,10 +67,20 @@ export default function LoginScreen() {
     }
   };
 
+  if (checkingSession) {
+    return (
+      <LinearGradient colors={['#6366F1', '#4338CA', '#3730A3']} style={styles.gradient}>
+        <View style={styles.checkingWrap}>
+          <ActivityIndicator color="#fff" size="large" />
+        </View>
+      </LinearGradient>
+    );
+  }
+
   return (
     <LinearGradient colors={['#6366F1', '#4338CA', '#3730A3']} style={styles.gradient}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -145,6 +169,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
+  checkingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { flexGrow: 1, paddingHorizontal: SPACING.lg, justifyContent: 'center' },
   logoWrap: { alignItems: 'center', marginBottom: SPACING.xl },
   logoCircle: {

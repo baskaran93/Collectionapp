@@ -49,7 +49,7 @@ Navigation uses **expo-router** with a Stack + Tab structure. Entry is `app/inde
 
 ### API endpoints
 
-Base URL: `https://collection-api-production-cbad.up.railway.app`
+Base URL: `https://collectionappapi.onrender.com` (FastAPI backend on Render, Postgres DB on Supabase)
 
 - `GET/POST /api/parties` — list / create
 - `GET/PUT/DELETE /api/parties/:id`

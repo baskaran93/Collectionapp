@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  Share,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
@@ -18,6 +20,7 @@ import ScreenHeader from '../../components/ScreenHeader';
 import { useTranslation } from '../../constants/i18n';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
+import { queueCollection } from '../../constants/offlineQueue';
 
 const MODE_OPTIONS = [
   { value: 'Cash',          label: 'Cash' },
@@ -26,6 +29,23 @@ const MODE_OPTIONS = [
   { value: 'Cheque',        label: 'Cheque' },
 ];
 const STATUS_OPTIONS = ['Received', 'Pending', 'Bounced'];
+
+function buildReceiptText(payload, party) {
+  const dateStr = new Date(payload.CollectionDate).toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+  const lines = [
+    'Payment Receipt',
+    '----------------------------',
+    `Party: ${party?.PartyName || '-'}`,
+    `Amount: ₹${parseFloat(payload.Amount).toLocaleString('en-IN')}`,
+    `Date: ${dateStr}`,
+    `Mode: ${payload.PaymentMode}`,
+  ];
+  if (payload.ReferenceNo) lines.push(`Reference: ${payload.ReferenceNo}`);
+  lines.push('----------------------------', 'Thank you!');
+  return lines.join('\n');
+}
 
 function Field({ label, required, hint, children }) {
   return (
@@ -86,6 +106,38 @@ function DateField({ label, required, value, onChange }) {
 }
 
 export default function CollectionDetailScreen() {
+  const scrollRef = useRef(null);
+  const scrollYRef = useRef(0);
+  const inputRefs = useRef([]);
+  const focusedIndexRef = useRef(null);
+
+  const adjustScrollForFocusedField = () => {
+    const idx = focusedIndexRef.current;
+    const node = idx != null ? inputRefs.current[idx] : null;
+    const scroller = scrollRef.current;
+    if (!node || !scroller || !node.measure || !scroller.measure) return;
+    scroller.measure((sx, sy, sw, sh, spx, spy) => {
+      node.measure((x, y, w, h, px, py) => {
+        const visibleBottom = spy + sh;
+        const fieldBottom = py + h;
+        if (fieldBottom > visibleBottom - 16) {
+          const delta = fieldBottom - visibleBottom + 24;
+          scroller.scrollTo({ y: scrollYRef.current + delta, animated: true });
+        }
+      });
+    });
+  };
+
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', adjustScrollForFocusedField);
+    return () => sub.remove();
+  }, []);
+
+  const handleFocus = (idx) => {
+    focusedIndexRef.current = idx;
+    setTimeout(adjustScrollForFocusedField, 50);
+  };
+
   const { t } = useTranslation();
   const { id, loanId: loanIdParam, partyId: partyIdParam } = useLocalSearchParams();
   const isNew = !id || id === 'new';
@@ -176,13 +228,49 @@ export default function CollectionDetailScreen() {
         Notes: form.Notes.trim() || null,
       };
       const url = isNew ? `${API_BASE}/api/collections` : `${API_BASE}/api/collections/${id}`;
-      const res = await fetch(url, {
-        method: isNew ? 'POST' : 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      let res;
+      try {
+        res = await fetch(url, {
+          method: isNew ? 'POST' : 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (networkError) {
+        if (!isNew) throw networkError;
+        await queueCollection(payload);
+        const party = parties.find((p) => String(p.Id) === form.PartyId);
+        Alert.alert(
+          'Saved Offline',
+          `No connection right now — this ₹${parseFloat(payload.Amount).toLocaleString('en-IN')} collection for ${party?.PartyName || 'party'} is queued and will sync automatically once you're back online.`,
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+        return;
+      }
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Failed'); }
-      router.back();
+      if (isNew) {
+        const party = parties.find((p) => String(p.Id) === form.PartyId);
+        Alert.alert(
+          'Collection Recorded',
+          `₹${parseFloat(payload.Amount).toLocaleString('en-IN')} recorded for ${party?.PartyName || 'party'}.`,
+          [
+            { text: 'Done', onPress: () => router.back() },
+            {
+              text: 'Share Receipt',
+              onPress: async () => {
+                try {
+                  await Share.share({ message: buildReceiptText(payload, party) });
+                } catch {
+                  // user dismissed share sheet — ignore
+                } finally {
+                  router.back();
+                }
+              },
+            },
+          ],
+        );
+      } else {
+        router.back();
+      }
     } catch (e) {
       Alert.alert('Error', e.message || 'Failed to save collection.');
     } finally {
@@ -198,10 +286,14 @@ export default function CollectionDetailScreen() {
         onPress: async () => {
           setSaving(true);
           try {
-            await fetch(`${API_BASE}/api/collections/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_BASE}/api/collections/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.detail || 'Failed to delete collection.');
+            }
             router.replace('/(tabs)/collections');
-          } catch {
-            Alert.alert('Error', 'Failed to delete.');
+          } catch (e) {
+            Alert.alert('Unable to Delete', e.message || 'Failed to delete collection.');
             setSaving(false);
           }
         },
@@ -213,7 +305,7 @@ export default function CollectionDetailScreen() {
   const needsRef = form.PaymentMode !== 'Cash';
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <View style={styles.root}>
         <ScreenHeader
           title={isNew ? t('collect') || 'Record Collection' : t('editCollection')}
@@ -224,7 +316,7 @@ export default function CollectionDetailScreen() {
           saveLabel={t('save')}
         />
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Account */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>{t('accountInformation') || 'Account Information'}</Text>
@@ -294,6 +386,8 @@ export default function CollectionDetailScreen() {
               <View style={{ flex: 1 }}>
                 <Field label={t('amount') || 'Amount (₹)'} required hint={selectedLoan ? `${t('installment') || 'Inst'}: ₹${Number(selectedLoan.InstallmentAmount).toLocaleString('en-IN')}` : undefined}>
                   <TextInput
+                ref={(r) => { inputRefs.current[0] = r; }}
+                onFocus={() => handleFocus(0)}
                     style={INPUT}
                     placeholder="0.00"
                     placeholderTextColor={COLORS.textMuted}
@@ -324,6 +418,8 @@ export default function CollectionDetailScreen() {
             {needsRef && (
               <Field label="Reference / Transaction No." required>
                 <TextInput
+                ref={(r) => { inputRefs.current[1] = r; }}
+                onFocus={() => handleFocus(1)}
                   style={INPUT}
                   placeholder={form.PaymentMode === 'Cheque' ? 'Cheque Number' : form.PaymentMode === 'UPI' ? 'UPI Transaction ID' : 'Bank Reference No.'}
                   placeholderTextColor={COLORS.textMuted}
@@ -346,6 +442,8 @@ export default function CollectionDetailScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Notes</Text>
             <TextInput
+                ref={(r) => { inputRefs.current[2] = r; }}
+                onFocus={() => handleFocus(2)}
               style={[INPUT, { minHeight: 80, textAlignVertical: 'top', paddingTop: 12 }]}
               placeholder="Add collection remarks, receipt ref..."
               placeholderTextColor={COLORS.textMuted}
@@ -362,7 +460,7 @@ export default function CollectionDetailScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 40 },
+  scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 300 },
   card: {
     backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,

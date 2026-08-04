@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,14 @@ import {
   RefreshControl,
   Alert,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FileText, Layers, Clock3, Download, TrendingUp } from 'lucide-react-native';
+import { FileText, Layers, Clock3, Download, TrendingUp, MessageCircle, CalendarDays } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTranslation } from '../../constants/i18n';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
@@ -21,13 +26,23 @@ import * as Print from 'expo-print';
 
 const REPORT_KEYS = [
   'collectionSummary',
+  'dateWiseCollection',
   'outstanding',
   'paymentHistory',
   'customerLedger',
 ];
 
+const REPORT_LABELS = {
+  collectionSummary: 'Collection Summary',
+  dateWiseCollection: 'Date & Party Wise',
+  outstanding: 'Outstanding',
+  paymentHistory: 'Payment History',
+  customerLedger: 'Customer Ledger',
+};
+
 const iconMap = {
   collectionSummary: FileText,
+  dateWiseCollection: CalendarDays,
   outstanding: TrendingUp,
   paymentHistory: Clock3,
   customerLedger: Layers,
@@ -46,6 +61,38 @@ function safeNumber(value) {
 }
 
 export default function ReportsScreen() {
+  const scrollRef = useRef(null);
+  const scrollYRef = useRef(0);
+  const inputRefs = useRef([]);
+  const focusedIndexRef = useRef(null);
+
+  const adjustScrollForFocusedField = () => {
+    const idx = focusedIndexRef.current;
+    const node = idx != null ? inputRefs.current[idx] : null;
+    const scroller = scrollRef.current;
+    if (!node || !scroller || !node.measure || !scroller.measure) return;
+    scroller.measure((sx, sy, sw, sh, spx, spy) => {
+      node.measure((x, y, w, h, px, py) => {
+        const visibleBottom = spy + sh;
+        const fieldBottom = py + h;
+        if (fieldBottom > visibleBottom - 16) {
+          const delta = fieldBottom - visibleBottom + 24;
+          scroller.scrollTo({ y: scrollYRef.current + delta, animated: true });
+        }
+      });
+    });
+  };
+
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', adjustScrollForFocusedField);
+    return () => sub.remove();
+  }, []);
+
+  const handleFocus = (idx) => {
+    focusedIndexRef.current = idx;
+    setTimeout(adjustScrollForFocusedField, 50);
+  };
+
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [collections, setCollections] = useState([]);
@@ -84,6 +131,10 @@ export default function ReportsScreen() {
   }, [fetchData]);
 
   const [partyQuery, setPartyQuery] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
 
   const partyOptions = useMemo(
     () => Array.from(new Set(parties.map((p) => p.PartyName).filter(Boolean))).slice(0, 8),
@@ -141,6 +192,24 @@ export default function ReportsScreen() {
     return { todayTotal, monthTotal, allTotal, count: filteredCollections.length };
   }, [filteredCollections, today, monthRef]);
 
+  const onShareWhatsapp = useCallback(async () => {
+    const dateStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const outstandingTotal = filteredOutstandingLoans.reduce((sum, loan) => sum + safeNumber(loan.LoanAmount), 0);
+    const message = [
+      `Collection Summary — ${dateStr}`,
+      '----------------------------',
+      `Collected today: ${formatCurrency(collectionSummary.todayTotal)}`,
+      `Collected this month: ${formatCurrency(collectionSummary.monthTotal)}`,
+      `Outstanding: ${formatCurrency(outstandingTotal)}`,
+      `Overdue loans: ${filteredOverdueLoans.length}`,
+    ].join('\n');
+    try {
+      await Linking.openURL(`whatsapp://send?text=${encodeURIComponent(message)}`);
+    } catch {
+      Alert.alert('WhatsApp not available', 'Could not open WhatsApp. Make sure it is installed.');
+    }
+  }, [collectionSummary, filteredOutstandingLoans, filteredOverdueLoans]);
+
   const outstandingLoans = filteredOutstandingLoans;
   const overdueLoans = filteredOverdueLoans;
 
@@ -192,6 +261,47 @@ export default function ReportsScreen() {
     [ledgerRows, matchParty],
   );
 
+  const dateWiseRows = useMemo(() => {
+    const from = fromDate ? new Date(fromDate) : null;
+    const to = toDate ? new Date(toDate) : null;
+    if (to) to.setHours(23, 59, 59, 999);
+
+    const filtered = filteredCollections.filter((item) => {
+      const collectionDate = new Date(item.CollectionDate);
+      if (from && collectionDate < from) return false;
+      if (to && collectionDate > to) return false;
+      return true;
+    });
+
+    const dateMap = new Map();
+    filtered.forEach((item) => {
+      const rawDate = item.CollectionDate;
+      const dateKey = new Date(rawDate).toLocaleDateString('en-IN');
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, { date: dateKey, rawDate, parties: new Map(), total: 0 });
+      }
+      const bucket = dateMap.get(dateKey);
+      const partyName = item.PartyName || 'Unknown';
+      const prevParty = bucket.parties.get(partyName) || { name: partyName, amount: 0, count: 0 };
+      prevParty.amount += safeNumber(item.Amount);
+      prevParty.count += 1;
+      bucket.parties.set(partyName, prevParty);
+      bucket.total += safeNumber(item.Amount);
+    });
+
+    return Array.from(dateMap.values())
+      .sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate))
+      .map((bucket) => ({
+        ...bucket,
+        parties: Array.from(bucket.parties.values()).sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+  }, [filteredCollections, fromDate, toDate]);
+
+  const dateWiseGrandTotal = useMemo(
+    () => dateWiseRows.reduce((sum, bucket) => sum + bucket.total, 0),
+    [dateWiseRows],
+  );
+
   const createCsv = useCallback((report) => {
     const clean = (value) => {
       const text = value == null ? '' : String(value);
@@ -223,6 +333,16 @@ export default function ReportsScreen() {
         item.PaymentMode || 'N/A',
         item.ReferenceNo || '',
       ]);
+    } else if (report === 'dateWiseCollection') {
+      header = [t('date'), t('party'), t('amount')];
+      rows = [];
+      dateWiseRows.forEach((bucket) => {
+        bucket.parties.forEach((p) => {
+          rows.push([bucket.date, p.name, formatCurrency(p.amount)]);
+        });
+        rows.push([`${bucket.date} Total`, '', formatCurrency(bucket.total)]);
+      });
+      rows.push(['Grand Total', '', formatCurrency(dateWiseGrandTotal)]);
     } else {
       header = [t('party'), t('openingBalance'), t('loanTotal'), t('collected'), t('adjustments'), t('closingBalance')];
       rows = filteredLedgerRows.map((row) => [
@@ -236,15 +356,15 @@ export default function ReportsScreen() {
     }
 
     return [header, ...rows].map((row) => row.map(clean).join(',')).join('\n');
-  }, [collectionSummary, collections, outstandingLoans, recentPayments, ledgerRows, today, monthRef]);
+  }, [collectionSummary, collections, outstandingLoans, recentPayments, ledgerRows, dateWiseRows, dateWiseGrandTotal, today, monthRef]);
 
   const createHtml = useCallback((report) => {
     const toRows = (items) => items.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('');
-    let title = report;
+    let title = REPORT_LABELS[report] || report;
     let rows = [];
     let headers = [];
 
-    if (report === 'Collection Summary') {
+    if (report === 'collectionSummary') {
       headers = ['Period', 'Amount', 'Count'];
       rows = [
         ['Today', formatCurrency(collectionSummary.todayTotal), filteredCollections.filter((item) => new Date(item.CollectionDate).toDateString() === today).length],
@@ -254,10 +374,10 @@ export default function ReportsScreen() {
         }).length],
         ['Total', formatCurrency(collectionSummary.allTotal), collectionSummary.count],
       ];
-    } else if (report === 'Outstanding') {
+    } else if (report === 'outstanding') {
       headers = ['Loan ID', 'Party', 'Status', 'Loan Amount', 'Installment'];
       rows = outstandingLoans.map((loan) => [loan.Id, loan.PartyName || 'Unknown', loan.Status, formatCurrency(loan.LoanAmount), formatCurrency(loan.InstallmentAmount)]);
-    } else if (report === 'Payment History') {
+    } else if (report === 'paymentHistory') {
       headers = ['Date', 'Party', 'Amount', 'Mode', 'Reference'];
       rows = filteredRecentPayments.map((item) => [
         new Date(item.CollectionDate).toLocaleDateString('en-IN'),
@@ -266,6 +386,15 @@ export default function ReportsScreen() {
         item.PaymentMode || 'N/A',
         item.ReferenceNo || '',
       ]);
+    } else if (report === 'dateWiseCollection') {
+      headers = ['Date', 'Party', 'Amount'];
+      dateWiseRows.forEach((bucket) => {
+        bucket.parties.forEach((p) => {
+          rows.push([bucket.date, p.name, formatCurrency(p.amount)]);
+        });
+        rows.push([`<strong>${bucket.date} Total</strong>`, '', `<strong>${formatCurrency(bucket.total)}</strong>`]);
+      });
+      rows.push([`<strong>Grand Total</strong>`, '', `<strong>${formatCurrency(dateWiseGrandTotal)}</strong>`]);
     } else {
       headers = ['Party', 'Opening Balance', 'Loan Total', 'Collected', 'Adjustments', 'Closing Balance'];
       rows = filteredLedgerRows.map((row) => [
@@ -301,7 +430,7 @@ export default function ReportsScreen() {
         </body>
       </html>
     `;
-  }, [collectionSummary, collections, outstandingLoans, recentPayments, ledgerRows, today, monthRef]);
+  }, [collectionSummary, collections, outstandingLoans, recentPayments, ledgerRows, dateWiseRows, dateWiseGrandTotal, today, monthRef]);
 
   const shareFile = useCallback(async (uri, mimeType, title) => {
     try {
@@ -322,7 +451,7 @@ export default function ReportsScreen() {
       const filename = `collectionapp-${selectedReport.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.csv`;
       const uri = `${FileSystem.cacheDirectory}${filename}`;
       await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-      await shareFile(uri, 'text/csv', `${selectedReport} export`);
+      await shareFile(uri, 'text/csv', `${REPORT_LABELS[selectedReport] || selectedReport} export`);
     } catch (error) {
       Alert.alert('Export Failed', 'Unable to create CSV export.');
     } finally {
@@ -335,7 +464,7 @@ export default function ReportsScreen() {
     try {
       const html = createHtml(selectedReport);
       const { uri } = await Print.printToFileAsync({ html });
-      await shareFile(uri, 'application/pdf', `${selectedReport} export`);
+      await shareFile(uri, 'application/pdf', `${REPORT_LABELS[selectedReport] || selectedReport} export`);
     } catch (error) {
       Alert.alert('Export Failed', 'Unable to create PDF export.');
     } finally {
@@ -346,10 +475,17 @@ export default function ReportsScreen() {
   const activeReport = selectedReport;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>      
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+    <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Reports</Text>
         <View style={styles.statsRight}>
+          <TouchableOpacity style={styles.exportButton} onPress={onShareWhatsapp} disabled={loading}>
+            <MessageCircle size={18} color="#fff" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.exportButton} onPress={onExportCsv} disabled={exporting || loading}>
             <FileText size={18} color="#fff" />
             <Text style={styles.exportLabel}>Excel</Text>
@@ -362,9 +498,14 @@ export default function ReportsScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
+        onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: 300 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick report overview</Text>
@@ -388,9 +529,33 @@ export default function ReportsScreen() {
           </View>
         </View>
 
-    
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.tabRow, { paddingHorizontal: SPACING.md }]}
+        >
+          {REPORT_KEYS.map((key) => {
+            const Icon = iconMap[key];
+            const active = selectedReport === key;
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[styles.tabItem, active && styles.tabItemActive]}
+                onPress={() => setSelectedReport(key)}
+              >
+                <View style={[styles.tabIcon, active && styles.tabIconActive]}>
+                  <Icon size={14} color={COLORS.primary} />
+                </View>
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>{REPORT_LABELS[key]}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
         <View style={styles.searchSection}>
           <TextInput
+            ref={(r) => { inputRefs.current[0] = r; }}
+                onFocus={() => handleFocus(0)}
             style={styles.searchInput}
             placeholder="Search party name..."
             placeholderTextColor={COLORS.textMuted}
@@ -428,7 +593,7 @@ export default function ReportsScreen() {
           </View>
         ) : (
           <View style={styles.reportContent}>
-            {activeReport === 'Collection Summary' && (
+            {activeReport === 'collectionSummary' && (
               <View style={styles.reportBox}>
                 <Text style={styles.reportHeading}>Collection Summary</Text>
                 <View style={styles.reportRow}>
@@ -450,7 +615,76 @@ export default function ReportsScreen() {
               </View>
             )}
 
-            {activeReport === 'Outstanding' && (
+            {activeReport === 'dateWiseCollection' && (
+              <View>
+                <View style={styles.dateFilterRow}>
+                  <TouchableOpacity style={styles.dateFilterBtn} onPress={() => setShowFromPicker(true)}>
+                    <CalendarDays size={14} color={COLORS.primary} />
+                    <Text style={styles.dateFilterText}>{fromDate ? new Date(fromDate).toLocaleDateString('en-IN') : 'From date'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.dateFilterBtn} onPress={() => setShowToPicker(true)}>
+                    <CalendarDays size={14} color={COLORS.primary} />
+                    <Text style={styles.dateFilterText}>{toDate ? new Date(toDate).toLocaleDateString('en-IN') : 'To date'}</Text>
+                  </TouchableOpacity>
+                  {(fromDate || toDate) ? (
+                    <TouchableOpacity onPress={() => { setFromDate(''); setToDate(''); }}>
+                      <Text style={styles.dateFilterClear}>Clear</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+                {showFromPicker ? (
+                  <DateTimePicker
+                    value={fromDate ? new Date(fromDate) : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(_, selected) => {
+                      setShowFromPicker(Platform.OS === 'ios');
+                      if (selected) setFromDate(selected.toISOString().split('T')[0]);
+                    }}
+                  />
+                ) : null}
+                {showToPicker ? (
+                  <DateTimePicker
+                    value={toDate ? new Date(toDate) : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(_, selected) => {
+                      setShowToPicker(Platform.OS === 'ios');
+                      if (selected) setToDate(selected.toISOString().split('T')[0]);
+                    }}
+                  />
+                ) : null}
+
+                {dateWiseRows.length === 0 ? (
+                  <Text style={styles.emptyText}>No collections found for the selected filters.</Text>
+                ) : (
+                  <>
+                    {dateWiseRows.map((bucket) => (
+                      <View key={bucket.date} style={styles.card}>
+                        <View style={styles.cardHeader}>
+                          <Text style={styles.cardTitle}>{bucket.date}</Text>
+                          <Text style={styles.cardMeta}>{formatCurrency(bucket.total)}</Text>
+                        </View>
+                        {bucket.parties.map((p) => (
+                          <View key={p.name} style={styles.row}>
+                            <Text style={styles.label}>{p.name}{p.count > 1 ? ` (x${p.count})` : ''}</Text>
+                            <Text style={styles.value}>{formatCurrency(p.amount)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ))}
+                    <View style={styles.reportBox}>
+                      <View style={[styles.reportRow, { borderBottomWidth: 0 }]}>
+                        <Text style={styles.reportLabel}>Grand Total</Text>
+                        <Text style={styles.reportValue}>{formatCurrency(dateWiseGrandTotal)}</Text>
+                      </View>
+                    </View>
+                  </>
+                )}
+              </View>
+            )}
+
+            {activeReport === 'outstanding' && (
               <View>
                 {outstandingLoans.length === 0 ? (
                   <Text style={styles.emptyText}>No outstanding loans available.</Text>
@@ -475,7 +709,7 @@ export default function ReportsScreen() {
               </View>
             )}
 
-            {activeReport === 'Payment History' && (
+            {activeReport === 'paymentHistory' && (
               <View>
                 {filteredRecentPayments.length === 0 ? (
                   <Text style={styles.emptyText}>No recent payment records found.</Text>
@@ -500,7 +734,7 @@ export default function ReportsScreen() {
               </View>
             )}
 
-            {activeReport === 'Customer Ledger' && (
+            {activeReport === 'customerLedger' && (
               <View>
                 {filteredLedgerRows.length === 0 ? (
                   <Text style={styles.emptyText}>No customer ledger data available.</Text>
@@ -543,6 +777,7 @@ export default function ReportsScreen() {
         </View>
       ) : null}
     </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -684,6 +919,20 @@ const styles = StyleSheet.create({
   statusActive: { backgroundColor: '#DBEAFE', color: '#1D4ED8' },
   statusOverdue: { backgroundColor: '#FEE2E2', color: '#991B1B' },
   emptyText: { textAlign: 'center', color: COLORS.textMuted, padding: SPACING.lg },
+  dateFilterRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: SPACING.md, flexWrap: 'wrap' },
+  dateFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  dateFilterText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
+  dateFilterClear: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
   center: { minHeight: 200, justifyContent: 'center', alignItems: 'center' },
   floatingOverlay: {
     position: 'absolute',

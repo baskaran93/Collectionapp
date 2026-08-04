@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -39,6 +40,38 @@ const INPUT_STYLE = {
 };
 
 export default function PartyDetailScreen() {
+  const scrollRef = useRef(null);
+  const scrollYRef = useRef(0);
+  const inputRefs = useRef([]);
+  const focusedIndexRef = useRef(null);
+
+  const adjustScrollForFocusedField = () => {
+    const idx = focusedIndexRef.current;
+    const node = idx != null ? inputRefs.current[idx] : null;
+    const scroller = scrollRef.current;
+    if (!node || !scroller || !node.measure || !scroller.measure) return;
+    scroller.measure((sx, sy, sw, sh, spx, spy) => {
+      node.measure((x, y, w, h, px, py) => {
+        const visibleBottom = spy + sh;
+        const fieldBottom = py + h;
+        if (fieldBottom > visibleBottom - 16) {
+          const delta = fieldBottom - visibleBottom + 24;
+          scroller.scrollTo({ y: scrollYRef.current + delta, animated: true });
+        }
+      });
+    });
+  };
+
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', adjustScrollForFocusedField);
+    return () => sub.remove();
+  }, []);
+
+  const handleFocus = (idx) => {
+    focusedIndexRef.current = idx;
+    setTimeout(adjustScrollForFocusedField, 50);
+  };
+
   const { t } = useTranslation();
   const { id } = useLocalSearchParams();
   const isNew = !id || id === 'new';
@@ -79,8 +112,16 @@ export default function PartyDetailScreen() {
       Alert.alert('Validation', 'Party name is required.');
       return;
     }
+    const phoneDigits = form.Phone.replace(/\D/g, '');
+    const normalizedPhone = phoneDigits.length === 12 && phoneDigits.startsWith('91')
+      ? phoneDigits.slice(2)
+      : phoneDigits;
     if (!form.Phone.trim()) {
       Alert.alert('Validation', 'Phone number is required.');
+      return;
+    }
+    if (normalizedPhone.length !== 10 || !/^[6-9]/.test(normalizedPhone)) {
+      Alert.alert('Validation', 'Enter a valid 10-digit mobile number.');
       return;
     }
     setSaving(true);
@@ -109,10 +150,14 @@ export default function PartyDetailScreen() {
         onPress: async () => {
           setSaving(true);
           try {
-            await fetch(`${API_BASE}/api/parties/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_BASE}/api/parties/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.detail || 'Failed to delete party.');
+            }
             router.replace('/(tabs)/parties');
-          } catch {
-            Alert.alert('Error', 'Failed to delete party.');
+          } catch (e) {
+            Alert.alert('Unable to Delete Party', e.message || 'Failed to delete party.');
             setSaving(false);
           }
         },
@@ -121,7 +166,7 @@ export default function PartyDetailScreen() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <View style={styles.root}>
         <ScreenHeader
           title={isNew ? t('newParty') : t('editParty')}
@@ -132,12 +177,14 @@ export default function PartyDetailScreen() {
           saveLabel={t('save')}
         />
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>{t('basicInformation') || 'Basic Information'}</Text>
 
             <Field label={t('party') + ' / Company Name'} required>
               <TextInput
+                ref={(r) => { inputRefs.current[0] = r; }}
+                onFocus={() => handleFocus(0)}
                 style={INPUT_STYLE}
                 placeholder={t('enterPartyName') || 'e.g. Acme Corporation'}
                 placeholderTextColor={COLORS.textMuted}
@@ -148,6 +195,8 @@ export default function PartyDetailScreen() {
 
             <Field label="Contact Person">
               <TextInput
+                ref={(r) => { inputRefs.current[1] = r; }}
+                onFocus={() => handleFocus(1)}
                 style={INPUT_STYLE}
                 placeholder="Full Name"
                 placeholderTextColor={COLORS.textMuted}
@@ -158,6 +207,8 @@ export default function PartyDetailScreen() {
 
             <Field label="GST / Tax Number">
               <TextInput
+                ref={(r) => { inputRefs.current[2] = r; }}
+                onFocus={() => handleFocus(2)}
                 style={INPUT_STYLE}
                 placeholder="e.g. 29ABCDE1234F1Z5"
                 placeholderTextColor={COLORS.textMuted}
@@ -173,6 +224,8 @@ export default function PartyDetailScreen() {
 
             <Field label={t('phone') || 'Phone Number'} required>
               <TextInput
+                ref={(r) => { inputRefs.current[3] = r; }}
+                onFocus={() => handleFocus(3)}
                 style={INPUT_STYLE}
                 placeholder="+91 98765 43210"
                 placeholderTextColor={COLORS.textMuted}
@@ -184,6 +237,8 @@ export default function PartyDetailScreen() {
 
             <Field label="Email Address">
               <TextInput
+                ref={(r) => { inputRefs.current[4] = r; }}
+                onFocus={() => handleFocus(4)}
                 style={INPUT_STYLE}
                 placeholder="contact@company.com"
                 placeholderTextColor={COLORS.textMuted}
@@ -196,6 +251,8 @@ export default function PartyDetailScreen() {
 
             <Field label="Billing Address">
               <TextInput
+                ref={(r) => { inputRefs.current[5] = r; }}
+                onFocus={() => handleFocus(5)}
                 style={[INPUT_STYLE, { minHeight: 88, textAlignVertical: 'top', paddingTop: 12 }]}
                 placeholder="Complete address including street, city, and zip code"
                 placeholderTextColor={COLORS.textMuted}
@@ -214,7 +271,7 @@ export default function PartyDetailScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 40 },
+  scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 300 },
   card: {
     backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,

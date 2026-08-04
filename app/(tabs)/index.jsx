@@ -8,15 +8,21 @@ import {
   RefreshControl,
   Dimensions,
   Alert,
+  ActivityIndicator,
+  Share,
+  DeviceEventEmitter,
 } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { LogOut, UserPlus, FileText, Wallet, TrendingUp, Settings } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { LogOut, UserPlus, FileText, Wallet, TrendingUp, Settings, Check, CloudOff, RefreshCw } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
 import Avatar, { getAvatarColor } from '../../components/Avatar';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
+import { clearSession } from '../../constants/session';
+import { queueCollection, syncQueue, getQueueCount } from '../../constants/offlineQueue';
 
 const { width } = Dimensions.get('window');
 
@@ -34,16 +40,21 @@ export default function DashboardScreen() {
   const [collections, setCollections] = useState([]);
   const [loans, setLoans] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  useEffect(() => {
-    if (loggingOut) router.replace('/');
-  }, [loggingOut]);
+  const [collectingLoanId, setCollectingLoanId] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [syncing, setSyncing] = useState(false);
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: () => setLoggingOut(true) },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          await clearSession();
+          DeviceEventEmitter.emit('app:logout');
+        },
+      },
     ]);
   };
 
@@ -64,10 +75,105 @@ export default function DashboardScreen() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const trySyncPending = useCallback(async () => {
+    const count = await getQueueCount();
+    setPendingCount(count);
+    if (count === 0) return;
+    setSyncing(true);
+    try {
+      const { synced, remaining } = await syncQueue();
+      setPendingCount(remaining);
+      if (synced > 0) await fetchData();
+    } finally {
+      setSyncing(false);
+    }
+  }, [fetchData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      trySyncPending();
+    }, [trySyncPending]),
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
+    await trySyncPending();
     await fetchData();
     setRefreshing(false);
+  };
+
+  const handleQuickCollect = (loan) => {
+    Alert.alert(
+      'Record Collection',
+      `Collect ₹${parseFloat(loan.InstallmentAmount || 0).toLocaleString('en-IN')} in cash from ${loan.PartyName || 'this party'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Collect',
+          onPress: async () => {
+            setCollectingLoanId(loan.Id);
+            const quickPayload = {
+              PartyId: loan.PartyId,
+              LoanId: loan.Id,
+              CollectionDate: new Date().toISOString().split('T')[0],
+              Amount: parseFloat(loan.InstallmentAmount) || 0,
+              PaymentMode: 'Cash',
+              ReferenceNo: null,
+              Status: 'Received',
+              Notes: null,
+            };
+            try {
+              let res;
+              try {
+                res = await fetch(`${API_BASE}/api/collections`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(quickPayload),
+                });
+              } catch {
+                await queueCollection(quickPayload);
+                Alert.alert(
+                  'Saved Offline',
+                  `No connection right now — this ₹${quickPayload.Amount.toLocaleString('en-IN')} collection for ${loan.PartyName || 'party'} is queued and will sync automatically once you're back online.`,
+                );
+                return;
+              }
+              if (!res.ok) throw new Error();
+              await fetchData();
+              Alert.alert(
+                'Collection Recorded',
+                `₹${parseFloat(loan.InstallmentAmount || 0).toLocaleString('en-IN')} recorded for ${loan.PartyName || 'party'}.`,
+                [
+                  { text: 'Done', style: 'cancel' },
+                  {
+                    text: 'Share Receipt',
+                    onPress: () => {
+                      const dateStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                      Share.share({
+                        message: [
+                          'Payment Receipt',
+                          '----------------------------',
+                          `Party: ${loan.PartyName || '-'}`,
+                          `Amount: ₹${parseFloat(loan.InstallmentAmount || 0).toLocaleString('en-IN')}`,
+                          `Date: ${dateStr}`,
+                          'Mode: Cash',
+                          '----------------------------',
+                          'Thank you!',
+                        ].join('\n'),
+                      }).catch(() => {});
+                    },
+                  },
+                ],
+              );
+            } catch {
+              Alert.alert('Error', 'Failed to record collection. Please try again.');
+            } finally {
+              setCollectingLoanId(null);
+            }
+          },
+        },
+      ],
+    );
   };
 
   // Derived stats
@@ -163,10 +269,45 @@ export default function DashboardScreen() {
               <Text style={styles.pillText}>{todayCols.length} {t('collectionsLabel')}</Text>
             </View>
           </View>
+
+          {dueTodayAmount > 0 && (
+            <View style={styles.progressWrap}>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.min(100, Math.round((todayTotal / dueTodayAmount) * 100))}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.progressLabel}>
+                ₹{Math.round(todayTotal).toLocaleString('en-IN')} of ₹{Math.round(dueTodayAmount).toLocaleString('en-IN')} collected today
+              </Text>
+            </View>
+          )}
         </LinearGradient>
 
         {/* ── Body ── */}
         <View style={styles.body}>
+
+          {pendingCount > 0 && (
+            <TouchableOpacity
+              style={styles.pendingBanner}
+              onPress={trySyncPending}
+              disabled={syncing}
+              activeOpacity={0.7}
+            >
+              <CloudOff size={18} color={COLORS.warning} />
+              <Text style={styles.pendingBannerText}>
+                {pendingCount} collection{pendingCount > 1 ? 's' : ''} saved offline, waiting to sync
+              </Text>
+              {syncing ? (
+                <ActivityIndicator size="small" color={COLORS.warning} />
+              ) : (
+                <RefreshCw size={16} color={COLORS.warning} />
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* Metrics Row */}
           <View style={styles.metricsCard}>
@@ -178,13 +319,17 @@ export default function DashboardScreen() {
               </Text>
             </View>
             <View style={styles.metricDivider} />
-            <View style={styles.metricHalf}>
+            <TouchableOpacity
+              style={styles.metricHalf}
+              onPress={() => router.push('/loans?status=Overdue')}
+              activeOpacity={overdueCount > 0 ? 0.6 : 1}
+            >
               <Text style={styles.metricLabel}>{t('outstandingLabel')}</Text>
               <Text style={styles.metricValue}>{formatAmount(outstandingTotal)}</Text>
-              <Text style={[styles.metricSub, { color: COLORS.danger }]}>\
-                {overdueCount} {t('overdue')}
+              <Text style={[styles.metricSub, { color: COLORS.danger }]}>
+                {overdueCount} {t('overdue')}{overdueCount > 0 ? ' ›' : ''}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Quick Actions */}
@@ -234,30 +379,51 @@ export default function DashboardScreen() {
                 const total = loan.NoOfInstallments || 0;
                 const { text: borderColor } = getAvatarColor(loan.PartyName || '');
                 const isOverdue = loan.Status === 'Overdue';
+                const isCollecting = collectingLoanId === loan.Id;
                 return (
-                  <TouchableOpacity
+                  <Swipeable
                     key={loan.Id || i}
-                    style={[styles.dueCard, { borderLeftColor: borderColor }]}
-                    onPress={() => router.push(`/collection/new?loanId=${loan.Id}&partyId=${loan.PartyId}`)}
+                    overshootRight={false}
+                    renderRightActions={() => (
+                      <TouchableOpacity
+                        style={styles.swipeCollectAction}
+                        onPress={() => handleQuickCollect(loan)}
+                        disabled={isCollecting}
+                      >
+                        {isCollecting ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <>
+                            <Check size={20} color="#fff" />
+                            <Text style={styles.swipeCollectText}>Collect</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
                   >
-                    <Avatar name={loan.PartyName || 'U'} size={44} radius={12} />
-                    <View style={styles.dueCardMid}>
-                      <Text style={styles.dueCardName}>{loan.PartyName || 'Unknown'}</Text>
-                      <Text style={styles.dueCardSub}>
-                        {isOverdue
-                          ? t('overdueStatus')
-                          : total > 0
-                          ? `${t('installment')} ${done + 1} of ${total}`
-                          : PERIOD_LABEL[loan.InstallPeriod] || t('installment')}
-                      </Text>
-                    </View>
-                    <View style={styles.dueCardRight}>
-                      <Text style={styles.dueAmount}>
-                        ₹{parseFloat(loan.InstallmentAmount || 0).toLocaleString('en-IN')}
-                      </Text>
-                      <Text style={styles.collectLink}>{t('collectAction')}</Text>
-                    </View>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.dueCard, { borderLeftColor: borderColor }]}
+                      onPress={() => router.push(`/collection/new?loanId=${loan.Id}&partyId=${loan.PartyId}`)}
+                    >
+                      <Avatar name={loan.PartyName || 'U'} size={44} radius={12} />
+                      <View style={styles.dueCardMid}>
+                        <Text style={styles.dueCardName}>{loan.PartyName || 'Unknown'}</Text>
+                        <Text style={styles.dueCardSub}>
+                          {isOverdue
+                            ? t('overdueStatus')
+                            : total > 0
+                            ? `${t('installment')} ${done + 1} of ${total}`
+                            : PERIOD_LABEL[loan.InstallPeriod] || t('installment')}
+                        </Text>
+                      </View>
+                      <View style={styles.dueCardRight}>
+                        <Text style={styles.dueAmount}>
+                          ₹{parseFloat(loan.InstallmentAmount || 0).toLocaleString('en-IN')}
+                        </Text>
+                        <Text style={styles.collectLink}>{t('collectAction')}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </Swipeable>
                 );
               })
             )}
@@ -341,9 +507,33 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   pillText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  progressWrap: { marginTop: 16 },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  progressLabel: { color: 'rgba(255,255,255,0.78)', fontSize: 12, marginTop: 6 },
 
   // Body
   body: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: 32 },
+
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.warningBg,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  pendingBannerText: { flex: 1, color: COLORS.warningText, fontSize: 13, fontWeight: '600' },
 
   // Metrics
   metricsCard: {
@@ -439,6 +629,17 @@ const styles = StyleSheet.create({
   dueCardRight: { alignItems: 'flex-end' },
   dueAmount: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
   collectLink: { fontSize: 13, color: COLORS.primary, fontWeight: '600', marginTop: 3 },
+  swipeCollectAction: {
+    backgroundColor: COLORS.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 84,
+    borderRadius: RADIUS.lg,
+    marginBottom: 10,
+    marginLeft: 8,
+    gap: 2,
+  },
+  swipeCollectText: { color: '#fff', fontWeight: '700', fontSize: 12 },
 
   // Recent Collections
   recentCard: {

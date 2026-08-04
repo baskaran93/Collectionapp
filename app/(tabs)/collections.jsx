@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,16 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { Search, Plus, Edit, TrendingUp, Calendar, IndianRupee } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Search, Plus, Edit, TrendingUp, Calendar, IndianRupee, CloudOff } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
 import Avatar from '../../components/Avatar';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
+import { getQueue } from '../../constants/offlineQueue';
 
 const STATUS_STYLE = {
   Received: { bg: '#DCFCE7', text: '#15803D' },
@@ -38,14 +40,21 @@ export default function CollectionsScreen() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [modeFilter, setModeFilter] = useState('All');
+  const [parties, setParties] = useState([]);
+  const [pendingItems, setPendingItems] = useState([]);
 
   const fetchCollections = useCallback(async () => {
     try {
       setError(null);
-      const res = await fetch(`${API_BASE}/api/collections`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const [colRes, partyRes] = await Promise.all([
+        fetch(`${API_BASE}/api/collections`),
+        fetch(`${API_BASE}/api/parties`),
+      ]);
+      if (!colRes.ok) throw new Error();
+      const data = await colRes.json();
       setCollections(Array.isArray(data) ? data : []);
+      const partyData = await partyRes.json().catch(() => []);
+      setParties(Array.isArray(partyData) ? partyData : []);
     } catch {
       setError(t('couldNotLoadCollections'));
     } finally {
@@ -53,7 +62,12 @@ export default function CollectionsScreen() {
     }
   }, []);
 
-  useEffect(() => { fetchCollections(); }, [fetchCollections]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchCollections();
+      getQueue().then(setPendingItems);
+    }, [fetchCollections]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -76,10 +90,34 @@ export default function CollectionsScreen() {
     return matchSearch && matchMode;
   });
 
+  const pendingDisplayItems = pendingItems.map((q) => {
+    const party = parties.find((p) => p.Id === q.payload.PartyId);
+    return {
+      ...q.payload,
+      _pending: true,
+      _localId: q.localId,
+      PartyName: party?.PartyName || 'Party',
+    };
+  }).filter((c) => {
+    const q = search.toLowerCase();
+    return (c.PartyName || '').toLowerCase().includes(q);
+  });
+
+  const listData = [...pendingDisplayItems, ...filtered];
+
   const renderItem = ({ item }) => {
     const ss = STATUS_STYLE[item.Status] || STATUS_STYLE.Received;
     return (
-      <TouchableOpacity style={styles.card} onPress={() => router.push(`/collection/${item.Id}`)}>
+      <TouchableOpacity
+        style={[styles.card, item._pending && styles.cardPending]}
+        onPress={() => {
+          if (item._pending) {
+            Alert.alert('Pending Sync', 'This collection is saved on your device and will sync automatically once you\'re back online.');
+            return;
+          }
+          router.push(`/collection/${item.Id}`);
+        }}
+      >
         <Avatar name={item.PartyName || ''} size={44} radius={12} />
         <View style={styles.cardBody}>
           <View style={styles.cardTopRow}>
@@ -93,15 +131,22 @@ export default function CollectionsScreen() {
             <View style={styles.modeTag}>
               <Text style={styles.modeText}>{item.PaymentMode}</Text>
             </View>
-            <View style={[styles.badge, { backgroundColor: ss.bg }]}>
-              <Text style={[styles.badgeText, { color: ss.text }]}>{item.Status}</Text>
-            </View>
+            {item._pending ? (
+              <View style={[styles.badge, { backgroundColor: COLORS.warningBg, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                <CloudOff size={11} color={COLORS.warningText} />
+                <Text style={[styles.badgeText, { color: COLORS.warningText }]}>Pending Sync</Text>
+              </View>
+            ) : (
+              <View style={[styles.badge, { backgroundColor: ss.bg }]}>
+                <Text style={[styles.badgeText, { color: ss.text }]}>{item.Status}</Text>
+              </View>
+            )}
           </View>
           {item.ReferenceNo ? (
             <Text style={styles.refText}>Ref: {item.ReferenceNo}</Text>
           ) : null}
         </View>
-        <Edit size={16} color={COLORS.textMuted} style={{ marginLeft: 8 }} />
+        {!item._pending && <Edit size={16} color={COLORS.textMuted} style={{ marginLeft: 8 }} />}
       </TouchableOpacity>
     );
   };
@@ -191,12 +236,12 @@ export default function CollectionsScreen() {
         </View>
       ) : (
         <FlatList
-          data={filtered}
-          keyExtractor={(item) => String(item.Id)}
+          data={listData}
+          keyExtractor={(item) => item._pending ? item._localId : String(item.Id)}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { await onRefresh(); getQueue().then(setPendingItems); }} tintColor={COLORS.primary} />}
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.emptyText}>
@@ -232,8 +277,8 @@ const styles = StyleSheet.create({
   searchArea: { paddingHorizontal: SPACING.md, paddingTop: 10, paddingBottom: 4, backgroundColor: COLORS.white },
   searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background, borderRadius: RADIUS.md, paddingHorizontal: 12, gap: 8, height: 40 },
   searchInput: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
-  filterRow: { backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  filterContent: { paddingHorizontal: SPACING.md, paddingVertical: 10, gap: 8 },
+  filterRow: { flexGrow: 0, height: 52, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  filterContent: { paddingHorizontal: SPACING.md, paddingVertical: 10, gap: 8, alignItems: 'center' },
   filterPill: { borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: COLORS.background },
   filterPillActive: { backgroundColor: COLORS.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
@@ -244,6 +289,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
+  cardPending: { borderWidth: 1, borderColor: COLORS.warning, borderStyle: 'dashed' },
   cardBody: { flex: 1, marginLeft: 12 },
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   partyName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
