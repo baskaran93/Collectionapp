@@ -75,7 +75,8 @@ export default function LoansScreen() {
 
   const filtered = loans.filter((l) => {
     const q = search.toLowerCase();
-    const matchSearch = (l.PartyName || '').toLowerCase().includes(q);
+    const matchSearch = (l.PartyName || '').toLowerCase().includes(q)
+      || (l.LoanNo || '').toLowerCase().includes(q);
     const matchFilter = filter === 'All' || l.Status === filter;
     return matchSearch && matchFilter;
   });
@@ -92,7 +93,11 @@ export default function LoansScreen() {
           <Avatar name={item.PartyName || ''} size={44} radius={12} />
           <View style={styles.cardMid}>
             <Text style={styles.partyName}>{item.PartyName || '—'}</Text>
-            <Text style={styles.period}>{PERIOD_LABEL[item.InstallPeriod] || item.InstallPeriod}</Text>
+            <Text style={styles.period} numberOfLines={1}>
+              {item.LoanNo ? `${item.LoanNo} · ` : ''}
+              {PERIOD_LABEL[item.InstallPeriod] || item.InstallPeriod}
+              {item.LoanTypeName ? ` · ${item.LoanTypeName}` : ''}
+            </Text>
           </View>
           <View style={[styles.badge, { backgroundColor: sc.bg }]}>
             <View style={[styles.dot, { backgroundColor: sc.dot }]} />

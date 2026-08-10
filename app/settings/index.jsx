@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { ArrowLeft, Languages, KeyRound, Users, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, Languages, KeyRound, Users, Tag, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from '../../constants/i18n';
 import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { getCurrentUser } from '../../constants/session';
@@ -40,7 +40,7 @@ export default function SettingsScreen() {
         <Text style={styles.title}>{t('settings')}</Text>
       </View>
 
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: SPACING.md + insets.bottom }]}>
         <View style={styles.card}>
           <MenuRow
             icon={<Languages size={18} color={colors.primary} />}
@@ -54,6 +54,13 @@ export default function SettingsScreen() {
             title="Change Password"
             subtitle={currentUser?.Username ? `Signed in as ${currentUser.Username}` : 'Update your account password'}
             onPress={() => router.push('/settings/change-password')}
+          />
+          <View style={styles.rowDivider} />
+          <MenuRow
+            icon={<Tag size={18} color={colors.primary} />}
+            title="Loan Types"
+            subtitle="Manage loan categories"
+            onPress={() => router.push('/loantypes')}
           />
           {currentUser?.Role === 'Admin' && (
             <>

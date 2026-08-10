@@ -97,8 +97,11 @@ export default function LoanDetailScreen() {
   const scrollYRef = useRef(0);
   const inputRefs = useRef([]);
   const focusedIndexRef = useRef(null);
+  const isMountedRef = useRef(true);
+  const focusTimeoutRef = useRef(null);
 
   const adjustScrollForFocusedField = () => {
+    if (!isMountedRef.current) return;
     const idx = focusedIndexRef.current;
     const node = idx != null ? inputRefs.current[idx] : null;
     const scroller = scrollRef.current;
@@ -106,7 +109,9 @@ export default function LoanDetailScreen() {
       return;
     }
     scroller.measure((sx, sy, sw, sh, spx, spy) => {
+      if (!isMountedRef.current) return;
       node.measure((x, y, w, h, px, py) => {
+        if (!isMountedRef.current) return;
         const visibleBottom = spy + sh;
         const fieldBottom = py + h;
         if (fieldBottom > visibleBottom - 16) {
@@ -119,12 +124,17 @@ export default function LoanDetailScreen() {
 
   useEffect(() => {
     const sub = Keyboard.addListener('keyboardDidShow', adjustScrollForFocusedField);
-    return () => sub.remove();
+    return () => {
+      isMountedRef.current = false;
+      if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+      sub.remove();
+    };
   }, []);
 
   const handleFocus = (idx) => {
     focusedIndexRef.current = idx;
-    setTimeout(adjustScrollForFocusedField, 50);
+    if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+    focusTimeoutRef.current = setTimeout(adjustScrollForFocusedField, 50);
   };
 
   const { colors } = useTheme();
@@ -144,9 +154,12 @@ export default function LoanDetailScreen() {
   const isNew = !id || id === 'new';
 
   const [parties, setParties] = useState([]);
+  const [loanTypes, setLoanTypes] = useState([]);
+  const [loanNo, setLoanNo] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     PartyId: '',
+    LoanTypeId: '',
     LoanAmount: '',
     LoanStartDate: '',
     NoOfInstallments: '',
@@ -166,21 +179,32 @@ export default function LoanDetailScreen() {
   }, []);
 
   useEffect(() => {
+    fetch(`${API_BASE}/api/loan-types`)
+      .then((r) => r.json())
+      .then((d) => setLoanTypes(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!isNew) {
       fetch(`${API_BASE}/api/loans/${id}`)
         .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-        .then((d) => setForm({
-          PartyId: String(d.PartyId || ''),
-          LoanAmount: String(d.LoanAmount || ''),
-          LoanStartDate: d.LoanStartDate || '',
-          NoOfInstallments: String(d.NoOfInstallments || ''),
-          InstallmentAmount: String(d.InstallmentAmount || ''),
-          InstallPeriod: d.InstallPeriod || 'month',
-          InstallmentDate: d.InstallmentDate != null ? String(d.InstallmentDate) : '',
-          LoanCloseDate: d.LoanCloseDate || '',
-          Status: d.Status || 'Active',
-          Notes: d.Notes || '',
-        }))
+        .then((d) => {
+          setLoanNo(d.LoanNo || '');
+          setForm({
+            PartyId: String(d.PartyId || ''),
+            LoanTypeId: d.LoanTypeId != null ? String(d.LoanTypeId) : '',
+            LoanAmount: String(d.LoanAmount || ''),
+            LoanStartDate: d.LoanStartDate || '',
+            NoOfInstallments: String(d.NoOfInstallments || ''),
+            InstallmentAmount: String(d.InstallmentAmount || ''),
+            InstallPeriod: d.InstallPeriod || 'month',
+            InstallmentDate: d.InstallmentDate != null ? String(d.InstallmentDate) : '',
+            LoanCloseDate: d.LoanCloseDate || '',
+            Status: d.Status || 'Active',
+            Notes: d.Notes || '',
+          });
+        })
         .catch(() => { Alert.alert('Error', 'Could not load loan.'); router.back(); });
     }
   }, [id, isNew]);
@@ -212,6 +236,7 @@ export default function LoanDetailScreen() {
 
   const handleSave = async () => {
     if (!form.PartyId) { Alert.alert('Validation', 'Please select a party.'); return; }
+    if (!form.LoanTypeId) { Alert.alert('Validation', 'Please select a loan type.'); return; }
     if (!form.LoanAmount) { Alert.alert('Validation', 'Loan amount is required.'); return; }
     if (!form.LoanStartDate) { Alert.alert('Validation', 'Start date is required.'); return; }
     if (!form.NoOfInstallments) { Alert.alert('Validation', 'Number of installments is required.'); return; }
@@ -235,6 +260,7 @@ export default function LoanDetailScreen() {
       const payload = {
         ...form,
         PartyId: parseInt(form.PartyId),
+        LoanTypeId: parseInt(form.LoanTypeId),
         LoanAmount: parseFloat(form.LoanAmount),
         NoOfInstallments: parseInt(form.NoOfInstallments),
         InstallmentAmount: parseFloat(form.InstallmentAmount),
@@ -298,6 +324,12 @@ export default function LoanDetailScreen() {
         />
 
         <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {loanNo ? (
+            <View style={styles.loanNoBadge}>
+              <Text style={styles.loanNoLabel}>Loan No</Text>
+              <Text style={styles.loanNoValue}>{loanNo}</Text>
+            </View>
+          ) : null}
           {/* Summary strip */}
           {totalAmount > 0 && (
             <View style={styles.summaryStrip}>
@@ -337,6 +369,21 @@ export default function LoanDetailScreen() {
                   <Picker.Item label="— Select a Party —" value="" />
                   {parties.map((p) => (
                     <Picker.Item key={p.Id} label={p.PartyName} value={String(p.Id)} />
+                  ))}
+                </Picker>
+              </View>
+            </Field>
+
+            <Field label="Loan Type" required>
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={form.LoanTypeId}
+                  onValueChange={set('LoanTypeId')}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="— Select a Loan Type —" value="" />
+                  {loanTypes.map((lt) => (
+                    <Picker.Item key={lt.Id} label={lt.TypeName} value={String(lt.Id)} />
                   ))}
                 </Picker>
               </View>
@@ -502,6 +549,14 @@ export default function LoanDetailScreen() {
 const createStyles = (colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: 300 },
+  loanNoBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF2FF', borderRadius: RADIUS.full,
+    paddingHorizontal: 12, paddingVertical: 6,
+  },
+  loanNoLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: '600' },
+  loanNoValue: { fontSize: 13, color: colors.primary, fontWeight: '800' },
   summaryStrip: {
     flexDirection: 'row', backgroundColor: colors.primary, borderRadius: RADIUS.lg, padding: SPACING.md, gap: 8,
   },

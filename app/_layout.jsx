@@ -39,6 +39,8 @@ function RootStack() {
           <Stack.Screen name="collection/[id]" />
           <Stack.Screen name="user/index" />
           <Stack.Screen name="user/[id]" />
+          <Stack.Screen name="loantypes/index" />
+          <Stack.Screen name="loantype/[id]" />
           <Stack.Screen name="+not-found" />
           <Stack.Screen name="settings/index" />
           <Stack.Screen name="settings/language" />
