@@ -21,7 +21,7 @@ export default function LanguageScreen() {
         <Text style={styles.title}>{t('selectLanguage')}</Text>
       </View>
 
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: SPACING.md + insets.bottom }]}>
         <Text style={styles.sectionSubtitle}>{t('languageSelection')}</Text>
         {Object.entries(LANGUAGES).map(([locale, label]) => {
           const active = locale === language;

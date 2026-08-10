@@ -11,6 +11,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import ScreenHeader from '../../components/ScreenHeader';
 import { SPACING, RADIUS, useTheme } from '../../constants/theme';
@@ -39,14 +40,19 @@ export default function UserDetailScreen() {
   const scrollYRef = useRef(0);
   const inputRefs = useRef([]);
   const focusedIndexRef = useRef(null);
+  const isMountedRef = useRef(true);
+  const focusTimeoutRef = useRef(null);
 
   const adjustScrollForFocusedField = () => {
+    if (!isMountedRef.current) return;
     const idx = focusedIndexRef.current;
     const node = idx != null ? inputRefs.current[idx] : null;
     const scroller = scrollRef.current;
     if (!node || !scroller || !node.measure || !scroller.measure) return;
     scroller.measure((sx, sy, sw, sh, spx, spy) => {
+      if (!isMountedRef.current) return;
       node.measure((x, y, w, h, px, py) => {
+        if (!isMountedRef.current) return;
         const visibleBottom = spy + sh;
         const fieldBottom = py + h;
         if (fieldBottom > visibleBottom - 16) {
@@ -59,14 +65,20 @@ export default function UserDetailScreen() {
 
   useEffect(() => {
     const sub = Keyboard.addListener('keyboardDidShow', adjustScrollForFocusedField);
-    return () => sub.remove();
+    return () => {
+      isMountedRef.current = false;
+      if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+      sub.remove();
+    };
   }, []);
 
   const handleFocus = (idx) => {
     focusedIndexRef.current = idx;
-    setTimeout(adjustScrollForFocusedField, 50);
+    if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+    focusTimeoutRef.current = setTimeout(adjustScrollForFocusedField, 50);
   };
 
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const INPUT_STYLE = {
@@ -161,7 +173,7 @@ export default function UserDetailScreen() {
           ref={scrollRef}
           onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
           scrollEventThrottle={16}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: 40 + insets.bottom }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

@@ -65,14 +65,19 @@ export default function ReportsScreen() {
   const scrollYRef = useRef(0);
   const inputRefs = useRef([]);
   const focusedIndexRef = useRef(null);
+  const isMountedRef = useRef(true);
+  const focusTimeoutRef = useRef(null);
 
   const adjustScrollForFocusedField = () => {
+    if (!isMountedRef.current) return;
     const idx = focusedIndexRef.current;
     const node = idx != null ? inputRefs.current[idx] : null;
     const scroller = scrollRef.current;
     if (!node || !scroller || !node.measure || !scroller.measure) return;
     scroller.measure((sx, sy, sw, sh, spx, spy) => {
+      if (!isMountedRef.current) return;
       node.measure((x, y, w, h, px, py) => {
+        if (!isMountedRef.current) return;
         const visibleBottom = spy + sh;
         const fieldBottom = py + h;
         if (fieldBottom > visibleBottom - 16) {
@@ -85,12 +90,17 @@ export default function ReportsScreen() {
 
   useEffect(() => {
     const sub = Keyboard.addListener('keyboardDidShow', adjustScrollForFocusedField);
-    return () => sub.remove();
+    return () => {
+      isMountedRef.current = false;
+      if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+      sub.remove();
+    };
   }, []);
 
   const handleFocus = (idx) => {
     focusedIndexRef.current = idx;
-    setTimeout(adjustScrollForFocusedField, 50);
+    if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+    focusTimeoutRef.current = setTimeout(adjustScrollForFocusedField, 50);
   };
 
   const insets = useSafeAreaInsets();

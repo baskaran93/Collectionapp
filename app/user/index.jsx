@@ -113,7 +113,7 @@ export default function UserListScreen() {
           data={users}
           keyExtractor={(item) => String(item.Id)}
           renderItem={renderItem}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: SPACING.md + insets.bottom }]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={
