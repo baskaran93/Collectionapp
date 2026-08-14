@@ -28,7 +28,14 @@
     "plugins": [
       "expo-router",
       "expo-splash-screen",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Collection ERP to access your photos to attach a profile photo or proof document.",
+          "cameraPermission": "Allow Collection ERP to access your camera to take a profile photo or proof document."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

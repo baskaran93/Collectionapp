@@ -9,9 +9,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { Camera, Plus, FileText, Trash2 } from 'lucide-react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import ScreenHeader from '../../components/ScreenHeader';
+import Avatar from '../../components/Avatar';
 import { useTranslation } from '../../constants/i18n';
 import { SPACING, RADIUS, useTheme } from '../../constants/theme';
 import { API_BASE } from '../../constants/api';
@@ -98,18 +104,35 @@ export default function PartyDetailScreen() {
     GstNumber: '',
   });
 
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [documents, setDocuments] = useState([]);
+  const [docUploading, setDocUploading] = useState(false);
+
+  const loadDocuments = () => {
+    if (isNew) return;
+    fetch(`${API_BASE}/api/parties/${id}/documents`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setDocuments)
+      .catch(() => {});
+  };
+
   useEffect(() => {
     if (!isNew) {
       fetch(`${API_BASE}/api/parties/${id}`)
         .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-        .then((data) => setForm({
-          PartyName: data.PartyName || '',
-          ContactPerson: data.ContactPerson || '',
-          Phone: data.Phone || '',
-          Email: data.Email || '',
-          Address: data.Address || '',
-          GstNumber: data.GstNumber || '',
-        }))
+        .then((data) => {
+          setForm({
+            PartyName: data.PartyName || '',
+            ContactPerson: data.ContactPerson || '',
+            Phone: data.Phone || '',
+            Email: data.Email || '',
+            Address: data.Address || '',
+            GstNumber: data.GstNumber || '',
+          });
+          setPhotoUrl(data.ProfilePhotoUrl || null);
+          setDocuments(data.Documents || []);
+        })
         .catch(() => {
           Alert.alert('Error', 'Could not load party details.');
           router.back();
@@ -153,6 +176,128 @@ export default function PartyDetailScreen() {
     }
   };
 
+  const uploadPhotoAsync = async (asset) => {
+    setPhotoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: asset.uri,
+        name: asset.fileName || `photo_${Date.now()}.jpg`,
+        type: asset.mimeType || 'image/jpeg',
+      });
+      const res = await fetch(`${API_BASE}/api/parties/${id}/photo`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setPhotoUrl(data.ProfilePhotoUrl || null);
+    } catch {
+      Alert.alert('Error', 'Failed to upload photo. Please try again.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const launchCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera access is required to take a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: true, aspect: [1, 1] });
+    if (!result.canceled && result.assets?.[0]) uploadPhotoAsync(result.assets[0]);
+  };
+
+  const launchLibrary = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Photo library access is required.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: true, aspect: [1, 1] });
+    if (!result.canceled && result.assets?.[0]) uploadPhotoAsync(result.assets[0]);
+  };
+
+  const handleRemovePhoto = async () => {
+    setPhotoUploading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/parties/${id}/photo`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setPhotoUrl(null);
+    } catch {
+      Alert.alert('Error', 'Failed to remove photo. Please try again.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const handlePickPhoto = () => {
+    if (photoUploading) return;
+    Alert.alert('Profile Photo', 'Choose a source', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Take Photo', onPress: launchCamera },
+      { text: 'Choose from Gallery', onPress: launchLibrary },
+      ...(photoUrl ? [{ text: 'Remove Photo', style: 'destructive', onPress: handleRemovePhoto }] : []),
+    ]);
+  };
+
+  const uploadDocumentAsync = async (asset) => {
+    const formData = new FormData();
+    formData.append('file', {
+      uri: asset.uri,
+      name: asset.name || `document_${Date.now()}`,
+      type: asset.mimeType || 'application/octet-stream',
+    });
+    try {
+      const res = await fetch(`${API_BASE}/api/parties/${id}/documents`, { method: 'POST', body: formData });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handlePickDocuments = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'application/pdf'],
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const assets = result.assets || [];
+      if (!assets.length) return;
+      setDocUploading(true);
+      let failed = 0;
+      for (const asset of assets) {
+        const ok = await uploadDocumentAsync(asset);
+        if (!ok) failed += 1;
+      }
+      loadDocuments();
+      if (failed) Alert.alert('Upload issue', `${failed} of ${assets.length} file(s) failed to upload.`);
+    } catch {
+      Alert.alert('Error', 'Failed to pick document(s).');
+    } finally {
+      setDocUploading(false);
+    }
+  };
+
+  const handleDeleteDocument = (docId) => {
+    Alert.alert('Delete Document', 'Remove this document?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const res = await fetch(`${API_BASE}/api/parties/${id}/documents/${docId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error();
+            setDocuments((prev) => prev.filter((d) => d.Id !== docId));
+          } catch {
+            Alert.alert('Error', 'Failed to delete document. Please try again.');
+          }
+        },
+      },
+    ]);
+  };
+
   const handleDelete = () => {
     Alert.alert('Delete Party', 'Are you sure? This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
@@ -191,6 +336,32 @@ export default function PartyDetailScreen() {
 
         <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
+            <View style={styles.photoRow}>
+              <TouchableOpacity
+                onPress={isNew ? undefined : handlePickPhoto}
+                disabled={isNew || photoUploading}
+                activeOpacity={0.7}
+                style={styles.photoTouchable}
+              >
+                <Avatar uri={photoUrl} name={form.PartyName || '?'} size={72} radius={36} />
+                {!isNew && (
+                  <View style={[styles.photoBadge, { backgroundColor: colors.primary, borderColor: colors.white }]}>
+                    {photoUploading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Camera size={13} color="#fff" />
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+              <View style={styles.photoInfo}>
+                <Text style={styles.sectionTitle}>Profile Photo</Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                  {isNew ? 'Save the party first to add a photo.' : 'Tap the photo to change or remove it.'}
+                </Text>
+              </View>
+            </View>
+
             <Text style={styles.sectionTitle}>{t('basicInformation') || 'Basic Information'}</Text>
 
             <Field label={t('party') + ' / Company Name'} required>
@@ -275,6 +446,49 @@ export default function PartyDetailScreen() {
               />
             </Field>
           </View>
+
+          {isNew ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Proof Documents</Text>
+              <Text style={{ fontSize: 13, color: colors.textMuted }}>
+                Save this party first, then open it again to attach proof documents.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <View style={styles.docHeader}>
+                <Text style={styles.sectionTitle}>Proof Documents</Text>
+                <TouchableOpacity
+                  onPress={handlePickDocuments}
+                  disabled={docUploading}
+                  style={[styles.addDocBtn, { borderColor: colors.primary }]}
+                >
+                  {docUploading ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Plus size={15} color={colors.primary} />
+                  )}
+                  <Text style={[styles.addDocText, { color: colors.primary }]}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              {documents.length === 0 ? (
+                <Text style={{ fontSize: 13, color: colors.textMuted }}>No documents uploaded yet.</Text>
+              ) : (
+                documents.map((doc) => (
+                  <View key={doc.Id} style={[styles.docRow, { borderColor: colors.border }]}>
+                    <FileText size={18} color={colors.textSecondary} />
+                    <Text style={[styles.docName, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {doc.FileName}
+                    </Text>
+                    <TouchableOpacity onPress={() => handleDeleteDocument(doc.Id)} hitSlop={8}>
+                      <Trash2 size={16} color={colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -289,4 +503,22 @@ const createStyles = (colors) => StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: SPACING.md },
+  photoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
+  photoTouchable: { position: 'relative' },
+  photoBadge: {
+    position: 'absolute', right: -2, bottom: -2, width: 24, height: 24, borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center', borderWidth: 2,
+  },
+  photoInfo: { flex: 1, marginLeft: SPACING.md },
+  docHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  addDocBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: RADIUS.sm,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  addDocText: { fontSize: 13, fontWeight: '600' },
+  docRow: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  docName: { flex: 1, fontSize: 14 },
 });

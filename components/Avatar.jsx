@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 
 const PALETTE = [
   { bg: '#EEF2FF', text: '#6366F1' },
@@ -14,7 +14,16 @@ export function getAvatarColor(name = '') {
   return PALETTE[name.charCodeAt(0) % PALETTE.length];
 }
 
-export default function Avatar({ name = '', size = 44, radius = 12 }) {
+export default function Avatar({ name = '', size = 44, radius = 12, uri }) {
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        style={[styles.avatar, { width: size, height: size, borderRadius: radius }]}
+      />
+    );
+  }
+
   const initials = name
     .split(' ')
     .map((w) => w[0])
