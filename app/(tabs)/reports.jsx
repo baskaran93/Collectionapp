@@ -177,9 +177,22 @@ export default function ReportsScreen() {
     [loans, matchParty],
   );
 
+  const collectedByLoan = useMemo(
+    () => collections.reduce((acc, c) => {
+      acc[c.LoanId] = (acc[c.LoanId] || 0) + safeNumber(c.Amount);
+      return acc;
+    }, {}),
+    [collections],
+  );
+
   const filteredOutstandingLoans = useMemo(
-    () => filteredLoans.filter((loan) => loan.Status !== 'Closed'),
-    [filteredLoans],
+    () => filteredLoans
+      .filter((loan) => loan.Status !== 'Closed')
+      .map((loan) => ({
+        ...loan,
+        OutstandingAmount: Math.max(safeNumber(loan.LoanAmount) - (collectedByLoan[loan.Id] || 0), 0),
+      })),
+    [filteredLoans, collectedByLoan],
   );
 
   const filteredOverdueLoans = useMemo(
@@ -206,7 +219,7 @@ export default function ReportsScreen() {
 
   const onShareWhatsapp = useCallback(async () => {
     const dateStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    const outstandingTotal = filteredOutstandingLoans.reduce((sum, loan) => sum + safeNumber(loan.LoanAmount), 0);
+    const outstandingTotal = filteredOutstandingLoans.reduce((sum, loan) => sum + loan.OutstandingAmount, 0);
     const message = [
       `Collection Summary — ${dateStr}`,
       '----------------------------',
@@ -528,7 +541,7 @@ export default function ReportsScreen() {
             </View>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Outstanding</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(filteredOutstandingLoans.reduce((sum, loan) => sum + safeNumber(loan.LoanAmount), 0))}</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(filteredOutstandingLoans.reduce((sum, loan) => sum + loan.OutstandingAmount, 0))}</Text>
             </View>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Overdue loans</Text>
@@ -709,7 +722,7 @@ export default function ReportsScreen() {
                       </View>
                       <View style={styles.row}>
                         <Text style={styles.label}>Outstanding</Text>
-                        <Text style={styles.value}>{formatCurrency(loan.LoanAmount)}</Text>
+                        <Text style={styles.value}>{formatCurrency(loan.OutstandingAmount)}</Text>
                       </View>
                       <View style={styles.row}>
                         <Text style={styles.label}>Installment</Text>

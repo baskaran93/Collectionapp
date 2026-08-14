@@ -191,7 +191,16 @@ export default function DashboardScreen() {
 
   const activeLoans = loans.filter((l) => l.Status === 'Active' || l.Status === 'Overdue');
   const dueTodayAmount = activeLoans.reduce((s, l) => s + (parseFloat(l.InstallmentAmount) || 0), 0);
-  const outstandingTotal = loans.filter((l) => l.Status !== 'Closed').reduce((s, l) => s + (parseFloat(l.LoanAmount) || 0), 0);
+  const collectedAmountByLoan = collections.reduce((acc, c) => {
+    acc[c.LoanId] = (acc[c.LoanId] || 0) + (parseFloat(c.Amount) || 0);
+    return acc;
+  }, {});
+  const outstandingTotal = loans
+    .filter((l) => l.Status !== 'Closed')
+    .reduce((s, l) => {
+      const remaining = (parseFloat(l.LoanAmount) || 0) - (collectedAmountByLoan[l.Id] || 0);
+      return s + Math.max(remaining, 0);
+    }, 0);
   const overdueCount = loans.filter((l) => l.Status === 'Overdue').length;
 
   // Collection count map per loan for installment display
