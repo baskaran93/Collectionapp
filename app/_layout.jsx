@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Appearance, DeviceEventEmitter } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -17,12 +17,16 @@ if (Appearance?.setColorScheme) {
 function RootStack() {
   const { isDark } = useTheme();
 
-  // Logout is triggered from deep inside the (tabs) navigator. Handling the
-  // resulting navigation here, at the true root, avoids ambiguity around
-  // which navigator a nested router.replace()/dismissTo() call would target.
+  // Logout is triggered from deep inside the (tabs) navigator, where a nested
+  // router.replace()/dismissTo() call can land in the wrong navigator (or get
+  // dropped while the confirm Alert is still dismissing) and leave the
+  // dashboard on screen until the app is force-closed and reopened.
+  // Remounting the whole Stack via `key` is a hard reset: it always drops
+  // back to the default initial route ('/') with no navigator ambiguity.
+  const [sessionEpoch, setSessionEpoch] = useState(0);
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('app:logout', () => {
-      router.replace('/');
+      setSessionEpoch((e) => e + 1);
     });
     return () => sub.remove();
   }, []);
@@ -31,7 +35,7 @@ function RootStack() {
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <ErrorBoundary>
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack key={sessionEpoch} screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="customer/login" />
           <Stack.Screen name="customer/loans" />
