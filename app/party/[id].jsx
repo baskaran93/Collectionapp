@@ -11,10 +11,11 @@ import {
   Keyboard,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { Camera, Plus, FileText, Trash2 } from 'lucide-react-native';
+import { Camera, Plus, FileText, Trash2, Eye } from 'lucide-react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import ScreenHeader from '../../components/ScreenHeader';
 import Avatar from '../../components/Avatar';
@@ -108,6 +109,9 @@ export default function PartyDetailScreen() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [docUploading, setDocUploading] = useState(false);
+  const [hasPin, setHasPin] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
 
   const loadDocuments = () => {
     if (isNew) return;
@@ -132,6 +136,7 @@ export default function PartyDetailScreen() {
           });
           setPhotoUrl(data.ProfilePhotoUrl || null);
           setDocuments(data.Documents || []);
+          setHasPin(!!data.HasPin);
         })
         .catch(() => {
           Alert.alert('Error', 'Could not load party details.');
@@ -165,7 +170,7 @@ export default function PartyDetailScreen() {
       const res = await fetch(url, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, Phone: normalizedPhone }),
       });
       if (!res.ok) throw new Error();
       router.back();
@@ -296,6 +301,39 @@ export default function PartyDetailScreen() {
         },
       },
     ]);
+  };
+
+  const handleSetPin = async () => {
+    if (!/^\d{4,6}$/.test(pinInput.trim())) {
+      Alert.alert('Validation', 'PIN must be 4-6 digits.');
+      return;
+    }
+    setPinSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/parties/${id}/pin`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Pin: pinInput.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      setHasPin(true);
+      setPinInput('');
+      Alert.alert('Success', 'Customer login PIN has been set.');
+    } catch {
+      Alert.alert('Error', 'Failed to set PIN. Please try again.');
+    } finally {
+      setPinSaving(false);
+    }
+  };
+
+  const handleViewDocument = async (doc) => {
+    try {
+      const supported = await Linking.canOpenURL(doc.FileUrl);
+      if (!supported) throw new Error();
+      await Linking.openURL(doc.FileUrl);
+    } catch {
+      Alert.alert('Error', 'Could not open this document.');
+    }
   };
 
   const handleDelete = () => {
@@ -449,6 +487,54 @@ export default function PartyDetailScreen() {
 
           {isNew ? (
             <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Customer Login PIN</Text>
+              <Text style={{ fontSize: 13, color: colors.textMuted }}>
+                Save this party first, then open it again to set their login PIN.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <View style={styles.docHeader}>
+                <Text style={styles.sectionTitle}>Customer Login PIN</Text>
+                {hasPin && (
+                  <View style={[styles.pinSetBadge, { backgroundColor: colors.successBg }]}>
+                    <Text style={[styles.pinSetBadgeText, { color: colors.successText }]}>PIN Set</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: SPACING.sm }}>
+                {hasPin
+                  ? 'The customer can log in with their phone number and this PIN. Enter a new one to reset it.'
+                  : "Set a 4-6 digit PIN so this customer can log in and view their own loans. Share it with them directly."}
+              </Text>
+              <View style={styles.pinRow}>
+                <TextInput
+                  style={[INPUT_STYLE, styles.pinInput, { flex: 1 }]}
+                  placeholder="4-6 digit PIN"
+                  placeholderTextColor={colors.textMuted}
+                  value={pinInput}
+                  onChangeText={setPinInput}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  secureTextEntry
+                />
+                <TouchableOpacity
+                  style={[styles.setPinBtn, { backgroundColor: colors.primary }, pinSaving && { opacity: 0.7 }]}
+                  onPress={handleSetPin}
+                  disabled={pinSaving}
+                >
+                  {pinSaving ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.setPinBtnText}>{hasPin ? 'Reset' : 'Set PIN'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {isNew ? (
+            <View style={styles.card}>
               <Text style={styles.sectionTitle}>Proof Documents</Text>
               <Text style={{ fontSize: 13, color: colors.textMuted }}>
                 Save this party first, then open it again to attach proof documents.
@@ -477,11 +563,20 @@ export default function PartyDetailScreen() {
               ) : (
                 documents.map((doc) => (
                   <View key={doc.Id} style={[styles.docRow, { borderColor: colors.border }]}>
-                    <FileText size={18} color={colors.textSecondary} />
-                    <Text style={[styles.docName, { color: colors.textPrimary }]} numberOfLines={1}>
-                      {doc.FileName}
-                    </Text>
-                    <TouchableOpacity onPress={() => handleDeleteDocument(doc.Id)} hitSlop={8}>
+                    <TouchableOpacity
+                      style={styles.docTouchable}
+                      onPress={() => handleViewDocument(doc)}
+                      activeOpacity={0.6}
+                    >
+                      <FileText size={18} color={colors.textSecondary} />
+                      <Text style={[styles.docName, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {doc.FileName}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleViewDocument(doc)} hitSlop={8}>
+                      <Eye size={16} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteDocument(doc.Id)} hitSlop={8} style={{ marginLeft: SPACING.sm }}>
                       <Trash2 size={16} color={colors.danger} />
                     </TouchableOpacity>
                   </View>
@@ -511,6 +606,12 @@ const createStyles = (colors) => StyleSheet.create({
   },
   photoInfo: { flex: 1, marginLeft: SPACING.md },
   docHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  pinSetBadge: { borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
+  pinSetBadgeText: { fontSize: 11, fontWeight: '700' },
+  pinRow: { flexDirection: 'row', gap: SPACING.sm },
+  pinInput: { letterSpacing: 4, fontWeight: '700' },
+  setPinBtn: { borderRadius: RADIUS.md, paddingHorizontal: 18, justifyContent: 'center', alignItems: 'center' },
+  setPinBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   addDocBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: RADIUS.sm,
     paddingHorizontal: 10, paddingVertical: 6,
@@ -520,5 +621,6 @@ const createStyles = (colors) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  docTouchable: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   docName: { flex: 1, fontSize: 14 },
 });

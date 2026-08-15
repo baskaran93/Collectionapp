@@ -33,6 +33,9 @@ function RootStack() {
       <ErrorBoundary>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
+          <Stack.Screen name="customer/login" />
+          <Stack.Screen name="customer/loans" />
+          <Stack.Screen name="customer/change-pin" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="party/[id]" />
           <Stack.Screen name="loan/[id]" />

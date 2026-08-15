@@ -14,28 +14,28 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, EyeOff } from 'lucide-react-native';
-import { useTranslation } from '../constants/i18n';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SPACING, RADIUS, useTheme } from '../constants/theme';
-import { API_BASE } from '../constants/api';
-import { saveSession, isSessionValid } from '../constants/session';
+import { SPACING, RADIUS, useTheme } from '../../constants/theme';
+import { API_BASE } from '../../constants/api';
+import { saveCustomerSession, getCustomerToken } from '../../constants/customerSession';
 
-export default function LoginScreen() {
+export default function CustomerLoginScreen() {
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+
   const [checkingSession, setCheckingSession] = useState(true);
+  const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
-      if (await isSessionValid()) {
-        router.replace('/(tabs)');
+      const token = await getCustomerToken();
+      if (token) {
+        router.replace('/customer/loans');
       } else {
         setCheckingSession(false);
       }
@@ -43,27 +43,36 @@ export default function LoginScreen() {
   }, []);
 
   const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert(t('loginFailed'), t('missingFields'));
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length !== 10) {
+      Alert.alert('Invalid Number', 'Enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (pin.trim().length < 4) {
+      Alert.alert('Invalid PIN', 'Enter the PIN given to you by your loan officer.');
       return;
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
+      const res = await fetch(`${API_BASE}/api/customer-auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Username: username.trim(), Password: password }),
+        body: JSON.stringify({ Phone: digits, Pin: pin.trim() }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        Alert.alert(t('loginFailed'), err.detail || t('invalidCredentials'));
+        Alert.alert('Login Failed', err.detail || 'Please try again.');
         return;
       }
-      const user = await res.json().catch(() => null);
-      await saveSession(user);
-      router.replace('/(tabs)');
+      const data = await res.json();
+      await saveCustomerSession(data.Token, {
+        PartyId: data.PartyId,
+        PartyName: data.PartyName,
+        Phone: data.Phone,
+      });
+      router.replace('/customer/loans');
     } catch {
-      Alert.alert(t('connectionError'), t('connectionError'));
+      Alert.alert('Connection Error', 'Could not reach the server. Check your connection.');
     } finally {
       setLoading(false);
     }
@@ -81,88 +90,67 @@ export default function LoginScreen() {
 
   return (
     <LinearGradient colors={['#6366F1', '#4338CA', '#3730A3']} style={styles.gradient}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Logo */}
+          <TouchableOpacity style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.replace('/')}>
+            <ArrowLeft size={22} color="#fff" />
+          </TouchableOpacity>
+
           <View style={styles.logoWrap}>
             <View style={styles.logoCircle}>
-              <Image
-                source={require('../assets/images/logo.png')}
-                style={styles.logoImg}
-                resizeMode="contain"
-              />
+              <Image source={require('../../assets/images/logo.png')} style={styles.logoImg} resizeMode="contain" />
             </View>
           </View>
 
-          {/* Card */}
           <View style={styles.card}>
-            <Text style={styles.title}>{t('welcomeBack')}</Text>
-            <Text style={styles.subtitle}>{t('signInSubtitle')}</Text>
+            <Text style={styles.title}>Customer Login</Text>
+            <Text style={styles.subtitle}>Enter your mobile number and the PIN given to you by your loan officer.</Text>
 
-            {/* Username */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('username')}</Text>
+              <Text style={styles.label}>Mobile Number</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('enterUsername')}
+                placeholder="10-digit mobile number"
                 placeholderTextColor={colors.textMuted}
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-                autoCorrect={false}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                maxLength={10}
                 returnKeyType="next"
               />
             </View>
 
-            {/* Password */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('password')}</Text>
-              <View style={styles.passwordRow}>
+              <Text style={styles.label}>PIN</Text>
+              <View style={styles.pinRow}>
                 <TextInput
-                  style={[styles.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRightWidth: 0 }]}
-                  placeholder={t('enterPassword')}
+                  style={[styles.input, styles.pinInput, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRightWidth: 0 }]}
+                  placeholder="- - - -"
                   placeholderTextColor={colors.textMuted}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
+                  value={pin}
+                  onChangeText={setPin}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  secureTextEntry={!showPin}
                   returnKeyType="done"
                   onSubmitEditing={handleLogin}
                 />
-                <TouchableOpacity
-                  style={styles.eyeBtn}
-                  onPress={() => setShowPassword((v) => !v)}
-                >
-                  {showPassword ? (
-                    <EyeOff size={20} color={colors.textSecondary} />
-                  ) : (
-                    <Eye size={20} color={colors.textSecondary} />
-                  )}
+                <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPin((v) => !v)}>
+                  {showPin ? <EyeOff size={20} color={colors.textSecondary} /> : <Eye size={20} color={colors.textSecondary} />}
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Login Button */}
             <TouchableOpacity
               style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
               onPress={handleLogin}
               disabled={loading}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.loginBtnText}>{t('logIn')}</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.customerLinkBtn} onPress={() => router.push('/customer/login')}>
-              <Text style={styles.customerLinkText}>Log in as a Customer instead</Text>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnText}>Log In</Text>}
             </TouchableOpacity>
 
             <Text style={styles.footer}>© 2025 Insight Expertz • Collection ERP</Text>
@@ -177,6 +165,7 @@ const createStyles = (colors) => StyleSheet.create({
   gradient: { flex: 1 },
   checkingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { flexGrow: 1, paddingHorizontal: SPACING.lg, justifyContent: 'center' },
+  backBtn: { position: 'absolute', left: SPACING.lg, zIndex: 1, padding: 6 },
   logoWrap: { alignItems: 'center', marginBottom: SPACING.xl },
   logoCircle: {
     width: 90,
@@ -213,7 +202,8 @@ const createStyles = (colors) => StyleSheet.create({
     fontSize: 15,
     color: colors.textPrimary,
   },
-  passwordRow: { flexDirection: 'row' },
+  pinRow: { flexDirection: 'row' },
+  pinInput: { letterSpacing: 4, fontWeight: '700' },
   eyeBtn: {
     backgroundColor: colors.background,
     borderWidth: 1,
@@ -234,7 +224,5 @@ const createStyles = (colors) => StyleSheet.create({
   },
   loginBtnDisabled: { opacity: 0.7 },
   loginBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  customerLinkBtn: { alignItems: 'center', marginTop: SPACING.lg },
-  customerLinkText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
   footer: { textAlign: 'center', color: colors.textMuted, fontSize: 12, marginTop: SPACING.lg },
 });
