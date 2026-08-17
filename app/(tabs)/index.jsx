@@ -28,6 +28,25 @@ const { width } = Dimensions.get('window');
 
 const PERIOD_LABEL = { day: 'Daily', week: 'Weekly', month: 'Monthly' };
 
+// Whether a loan's installment schedule (InstallPeriod + InstallmentDate) lands on `date`.
+// week: InstallmentDate is 1(Mon)-7(Sun). month: InstallmentDate is a day-of-month (1-31),
+// clamped to the last day of shorter months so e.g. "31" still fires in February.
+function isDueOnDate(loan, date) {
+  const period = loan.InstallPeriod;
+  if (period === 'day') return true;
+  if (period === 'week') {
+    const jsDay = date.getDay(); // 0(Sun)-6(Sat)
+    const loanDay = jsDay === 0 ? 7 : jsDay;
+    return Number(loan.InstallmentDate) === loanDay;
+  }
+  if (period === 'month') {
+    const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    const targetDay = Math.min(Number(loan.InstallmentDate) || 1, lastDayOfMonth);
+    return date.getDate() === targetDay;
+  }
+  return false;
+}
+
 function formatAmount(n) {
   if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
   if (n >= 1000) return `₹${(n / 1000).toFixed(0)}K`;
@@ -190,7 +209,10 @@ export default function DashboardScreen() {
   const pctChange = yesterdayTotal > 0 ? Math.round(((todayTotal - yesterdayTotal) / yesterdayTotal) * 100) : 0;
 
   const activeLoans = loans.filter((l) => l.Status === 'Active' || l.Status === 'Overdue');
-  const dueTodayAmount = activeLoans.reduce((s, l) => s + (parseFloat(l.InstallmentAmount) || 0), 0);
+  // Overdue loans always need chasing; Active ones only count as "due today" when
+  // today actually matches their installment schedule (day/week/month).
+  const dueTodayLoans = activeLoans.filter((l) => l.Status === 'Overdue' || isDueOnDate(l, new Date()));
+  const dueTodayAmount = dueTodayLoans.reduce((s, l) => s + (parseFloat(l.InstallmentAmount) || 0), 0);
   const collectedAmountByLoan = collections.reduce((acc, c) => {
     acc[c.LoanId] = (acc[c.LoanId] || 0) + (parseFloat(c.Amount) || 0);
     return acc;
@@ -210,7 +232,7 @@ export default function DashboardScreen() {
   }, {});
 
   const collectedTodayLoanIds = new Set(todayCols.map((c) => c.LoanId));
-  const dueItems = activeLoans
+  const dueItems = dueTodayLoans
     .filter((l) => !collectedTodayLoanIds.has(l.Id))
     .slice(0, 3);
   const recentCols = [...collections]
@@ -334,7 +356,7 @@ export default function DashboardScreen() {
               <Text style={styles.metricLabel}>{t('dueTodayLabel')}</Text>
               <Text style={styles.metricValue}>₹{Math.round(dueTodayAmount).toLocaleString('en-IN')}</Text>
               <Text style={[styles.metricSub, { color: colors.warning }]}>
-                {activeLoans.length} {t('activeParties')}
+                {dueTodayLoans.length} {t('activeParties')}
               </Text>
             </View>
             <View style={styles.metricDivider} />
